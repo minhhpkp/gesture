@@ -1,0 +1,22 @@
+# Authentication Service
+
+# How to run
+
+1. Activate your Python virtual environment or Conda environment. For example:
+
+```bash
+conda activate gesture
+```
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt"
+```
+
+3. Create an `.env` file with fields as listed in [example.py](example.py)
+4. Run:
+
+```bash
+fastapi run main.py --port 3000
+```

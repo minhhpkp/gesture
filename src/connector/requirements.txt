@@ -1,0 +1,4 @@
+livekit
+livekit-api
+fastapi[standard]
+websockets
