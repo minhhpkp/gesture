@@ -20,9 +20,11 @@ dependencies:
   http: ^1.6.0
   json_annotation: ^4.11.0
   livekit_client: ^2.6.5
+  logger: ^2.7.0
   permission_handler: ^12.0.1
   result_dart: ^2.1.1
   riverpod: ^3.2.1
+  rxdart: ^0.28.0
   shared_preferences: ^2.5.4
 
 

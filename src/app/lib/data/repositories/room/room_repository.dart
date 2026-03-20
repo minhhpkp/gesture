@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:gesture/data/repositories/join_token/join_token_repository.dart';
 import 'package:livekit_client/livekit_client.dart';
+import 'package:rxdart/subjects.dart';
 
 class RoomRepository {
   RoomRepository({
@@ -12,6 +15,10 @@ class RoomRepository {
 
   Room? _room;
   Room? get room => _room;
+  var _roomSubject = BehaviorSubject<Room>();
+  Stream<Room> get roomStream => _roomSubject.stream;
+  var _localParticipantSubject = BehaviorSubject<LocalParticipant>();
+  Stream<LocalParticipant> get localParticipantStream => _localParticipantSubject.stream;
 
   EventsListener<RoomEvent>? _listener;
   EventsListener<RoomEvent>? get listener => _listener;
@@ -97,12 +104,33 @@ class RoomRepository {
         camera: TrackOption(track: videoTrack),
       ),
     );
+
+    r.addListener(_broadcastRoomChange);
+    r.localParticipant!.addListener(_broadcastLocalParticipantChange);
+  }
+
+  void _broadcastRoomChange() {
+    final r = _room;
+    if (!_roomSubject.isClosed && r != null) _roomSubject.add(r);
+  }
+
+  void _broadcastLocalParticipantChange() {
+    final localParticipant = _room?.localParticipant;
+    if (!_localParticipantSubject.isClosed && localParticipant != null) {
+      _localParticipantSubject.add(localParticipant);
+    }
   }
 
   Future<void> dispose() async {
+    _room?.localParticipant?.removeListener(_broadcastLocalParticipantChange);
+    _room?.removeListener(_broadcastRoomChange);
+    await _localParticipantSubject.close();
+    await _roomSubject.close();
     await _listener?.dispose();
     await _room?.dispose();
     _listener = null;
     _room = null;
+    _localParticipantSubject = BehaviorSubject();
+    _roomSubject = BehaviorSubject();
   }
 }

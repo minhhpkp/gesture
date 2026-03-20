@@ -1,18 +1,17 @@
-# video_file_publisher.py
-import argparse
 import asyncio
-import logging
-import os
-from dotenv import load_dotenv
-from signal import SIGINT, SIGTERM
-from time import perf_counter
-
-import cv2
 from livekit import api, rtc
+from signal import SIGINT, SIGTERM
+from dotenv import load_dotenv
+from typing import Set
+import argparse
+import cv2
+import os
+from time import perf_counter
+import logging
+import json
 
 # ensure LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET are set
-load_dotenv()
-
+load_dotenv('../.env')
 
 def build_token(*, room_name: str, identity: str, name: str) -> str:
     return (
@@ -22,7 +21,6 @@ def build_token(*, room_name: str, identity: str, name: str) -> str:
         .with_grants(api.VideoGrants(room_join=True, room=room_name))
         .to_jwt()
     )
-
 
 def probe_video(path: str) -> tuple[int, int, float]:
     cap = cv2.VideoCapture(path)
@@ -38,7 +36,6 @@ def probe_video(path: str) -> tuple[int, int, float]:
     if width <= 0 or height <= 0:
         raise RuntimeError("Could not determine video width/height from the file.")
     return width, height, fps
-
 
 async def stream_video_file(
     *,
@@ -92,19 +89,54 @@ async def stream_video_file(
 
     cap.release()
 
+tasks: Set[asyncio.Task] = set()
 
-async def main(loop: asyncio.AbstractEventLoop, args: argparse.Namespace):
+def add_task(coro, loop: asyncio.AbstractEventLoop):
+    task = loop.create_task(coro)
+    tasks.add(task)
+    task.add_done_callback(tasks.remove)
+    return task
+
+async def main(room: rtc.Room, loop: asyncio.AbstractEventLoop, args: argparse.Namespace):
+    async def start_sign_recognition(pub_sid: str):
+        try:
+            logging.info("Sending RPC request for start_sign_recognition")
+            response = await room.local_participant.perform_rpc(
+                destination_identity='connector',
+                method='start_sign_recognition',
+                payload=json.dumps({'pub_sid': pub_sid})
+            )
+            logging.info(f"RPC response: {response}")
+        except Exception as e:
+            logging.warning(f"RPC call failed: {e}")
+
+    @room.on("local_track_published")
+    def on_local_track_published(
+        publication: rtc.LocalTrackPublication,
+        track: rtc.LocalAudioTrack | rtc.LocalVideoTrack,
+    ):
+        logging.info("local track published: %s", publication.sid)
+        if track.kind == rtc.TrackKind.KIND_VIDEO:
+            add_task(start_sign_recognition(publication.sid), loop)
+
     url = args.url or os.getenv("LIVEKIT_URL")
     if not url:
         raise RuntimeError("Missing LIVEKIT_URL (or pass --url).")
 
     token = build_token(room_name=args.room, identity=args.identity, name=args.name)
 
-    room = rtc.Room(loop=loop)
-
     logging.info("Connecting to %s ...", url)
     await room.connect(url, token)
     logging.info("Connected to room: %s", room.name)
+    
+    def handler(reader: rtc.TextStreamReader, sender_identity: str):
+        logging.info('stream sent by %s', sender_identity)
+        async def read():
+            async for chunk in reader:
+                print(chunk, end=' ', flush=True)
+        add_task(read(), loop)
+    room.register_text_stream_handler(topic="glosses", handler=handler)
+
 
     width, height, file_fps = probe_video(args.file)
     fps = args.fps if args.fps > 0 else (file_fps if file_fps > 0 else 30.0)
@@ -128,8 +160,7 @@ async def main(loop: asyncio.AbstractEventLoop, args: argparse.Namespace):
     logging.info("Published track sid=%s name=%s", publication.sid, track.name)
 
     # Keep pushing frames continuously (important even for “static” content)
-    asyncio.create_task(
-        stream_video_file(
+    await stream_video_file(
             source=source,
             path=args.file,
             out_width=width,
@@ -137,18 +168,16 @@ async def main(loop: asyncio.AbstractEventLoop, args: argparse.Namespace):
             fps=fps,
             loop_video=args.loop,
         )
-    )
 
-    # Block forever; Ctrl+C triggers cleanup in the signal handler.
-    await asyncio.Event().wait()
-
+    logging.info("End of video")
+    
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser()
     p.add_argument("--file", required=True, help="Path to a local video file (mp4, mov, ...)")
     p.add_argument("--room", default="my-room")
-    p.add_argument("--identity", default="python-video-bot")
-    p.add_argument("--name", default="Python Video Bot")
+    p.add_argument("--identity", default="example-client")
+    p.add_argument("--name", default="Python Bot")
     p.add_argument("--url", default=None, help="Overrides LIVEKIT_URL")
     p.add_argument("--fps", type=float, default=0.0, help="Override FPS (0 = use file FPS)")
     p.add_argument("--bitrate", type=int, default=3_000_000)
@@ -156,21 +185,25 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--loop", action="store_true", help="Loop the video when it ends")
     return p.parse_args()
 
-
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     args = parse_args()
+
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-
-    task = loop.create_task(main(loop, args))
+    room = rtc.Room(loop=loop)
+    add_task(main(room, loop, args), loop)
 
     async def cleanup():
-        task.cancel()
+        try:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, loop.create_task(room.disconnect()))
+        except asyncio.exceptions.CancelledError:
+            print('a task cancelled')
         loop.stop()
 
-    # Note: signal handlers are not supported the same way on Windows.
     for sig in (SIGINT, SIGTERM):
         try:
             loop.add_signal_handler(sig, lambda: asyncio.create_task(cleanup()))

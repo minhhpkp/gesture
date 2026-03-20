@@ -3,11 +3,12 @@ import 'package:gesture/data/services/api/models/create_join_token_request/creat
 import 'package:gesture/data/services/api/models/join_token_response/join_token_response.dart';
 
 class ApiClient {
-  ApiClient({String? baseUrl, Dio? dio}) {
-    _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl ?? 'http://localhost:8000'));
-  }
+  ApiClient({
+    required String baseUrl,
+    Dio? dio,
+  }) : _dio = dio ?? Dio(BaseOptions(baseUrl: baseUrl));
 
-  late final Dio _dio;
+  final Dio _dio;
 
   Future<JoinTokenResponse> createJoinToken(CreateJoinTokenRequest request, {CancelToken? cancelToken}) async {
     final reqJson = request.toJson();

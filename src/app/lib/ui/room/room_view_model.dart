@@ -21,7 +21,7 @@ class RoomViewModel extends Notifier<RoomState> {
 
     var initialState = RoomState(participantTracks: [], glosses: Queue());
 
-    void onRoomDidUpdate() {
+    void handleRoomChange() {
       final participants = _sortParticipants();
       if (isBuilding) {
         initialState = initialState.copyWith(
@@ -36,8 +36,8 @@ class RoomViewModel extends Notifier<RoomState> {
       }
     }
 
-    _room.addListener(onRoomDidUpdate);
-    ref.onDispose(() => _room.removeListener(onRoomDidUpdate));
+    _room.addListener(handleRoomChange);
+    ref.onDispose(() => _room.removeListener(handleRoomChange));
 
     void sortAndSetParticipants() {
       final participants = _sortParticipants();
@@ -93,27 +93,6 @@ class RoomViewModel extends Notifier<RoomState> {
       ..on<RoomMetadataChangedEvent>((event) {
         print('Room metadata changed: ${event.metadata}');
       })
-      ..on<DataReceivedEvent>((event) {
-        String decoded = 'Failed to decode';
-        try {
-          if (event.topic == 'caption') {
-            decoded = utf8.decode(event.data);
-            final newGlosses = isBuilding ? Queue<String>() : Queue.of(state.glosses);
-            newGlosses.add(decoded);
-            while (newGlosses.length > 10) {
-              newGlosses.removeFirst();
-            }
-            if (isBuilding) {
-              initialState = initialState.copyWith(glosses: newGlosses);
-            } else {
-              state = state.copyWith(glosses: newGlosses);
-            }
-          }
-        } catch (err) {
-          print('Failed to decode: $err');
-        }
-        // unawaited(context.showDataReceivedDialog(decoded));
-      })
       ..on<AudioPlaybackStatusChanged>((event) {
         if (!_room.canPlaybackAudio) {
           print('Audio playback failed for iOS Safari ..........');
@@ -131,6 +110,28 @@ class RoomViewModel extends Notifier<RoomState> {
     if (lkPlatformIs(PlatformType.android)) {
       unawaited(Hardware.instance.setSpeakerphoneOn(true));
     }
+
+    _room.registerTextStreamHandler('glosses', (reader, senderIdentity) {
+      print('stream sent by $senderIdentity');
+      final subscription = reader.listen((chunk) {
+        try {
+          final decoded = utf8.decode(chunk.content);
+          final newGlosses = isBuilding ? Queue<String>() : Queue.of(state.glosses);
+          newGlosses.add(decoded);
+          while (newGlosses.length > 10) {
+            newGlosses.removeFirst();
+          }
+          if (isBuilding) {
+            initialState = initialState.copyWith(glosses: newGlosses);
+          } else {
+            state = state.copyWith(glosses: newGlosses);
+          }
+        } catch (err) {
+          print('Failed to decode: $err');
+        }
+      });
+      ref.onDispose(() => unawaited(subscription.cancel()));
+    });
 
     isBuilding = false;
 

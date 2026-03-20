@@ -16,7 +16,7 @@ conda activate gesture
 pip install -r requirements.txt"
 ```
 
-3. Create an `.env` file with fields as listed in [example.py](example.py)
+3. Create an `.env` file with fields as listed in [example.env](example.env)
 4. Run:
 
 ```bash

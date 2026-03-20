@@ -3,3 +3,4 @@ livekit-api
 fastapi[standard]
 websockets
 python-dotenv
+opencv-python

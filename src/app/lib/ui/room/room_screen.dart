@@ -3,21 +3,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:gesture/di/providers.dart';
 import 'package:gesture/routing/routes.dart';
-import 'package:gesture/ui/room/control_bar.dart';
+import 'package:gesture/ui/room/control/control.dart';
 import 'package:gesture/ui/room/participant/participant_tile.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
 
-class RoomScreen extends ConsumerStatefulWidget {
+class RoomScreen extends ConsumerWidget {
   const RoomScreen({super.key});
 
-  @override
-  ConsumerState<RoomScreen> createState() => _RoomScreenState();
-}
-
-class _RoomScreenState extends ConsumerState<RoomScreen> {
-  Future<bool?> _showPlayAudioManuallyDialog() => showDialog<bool>(
+  Future<bool?> _showPlayAudioManuallyDialog(BuildContext context) => showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Play Audio'),
@@ -35,7 +30,7 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
     ),
   );
 
-  Future<bool?> _showRecordingStatusChangedDialog(bool isActiveRecording) => showDialog<bool>(
+  Future<bool?> _showRecordingStatusChangedDialog(BuildContext context, bool isActiveRecording) => showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Room recording reminder'),
@@ -50,15 +45,15 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
   );
 
   @override
-  Widget build(BuildContext context) {
-    final vm = ref.read(roomVieWModelProvider.notifier);
-    ref.listen(roomVieWModelProvider, (previous, next) async {
-      if (next.unableToPlaybackAudio) {
-        final yesno = await _showPlayAudioManuallyDialog();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final vm = ref.read(roomViewModelProvider.notifier);
+    ref.listen(roomViewModelProvider, (previous, next) async {
+      if (next.unableToPlaybackAudio && context.mounted) {
+        final yesno = await _showPlayAudioManuallyDialog(context);
         if (yesno == true) {
           await vm.manuallyPlayAudio();
         }
-        vm.waitForNextAudioPlaybackStatus();
+        if (context.mounted) vm.waitForNextAudioPlaybackStatus();
       }
 
       if (next.roomDisconnected) {
@@ -66,12 +61,12 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
       }
 
       if (previous?.activeRecording == null && next.activeRecording != null) {
-        await _showRecordingStatusChangedDialog(next.activeRecording!);
-        vm.waitForNextRecordingStatus();
+        if (context.mounted) await _showRecordingStatusChangedDialog(context, next.activeRecording!);
+        if (context.mounted) vm.waitForNextRecordingStatus();
       }
     });
 
-    final state = ref.watch(roomVieWModelProvider);
+    final state = ref.watch(roomViewModelProvider);
 
     return Scaffold(
       body: Stack(
@@ -108,7 +103,14 @@ class _RoomScreenState extends ConsumerState<RoomScreen> {
             ),
           ),
           Center(
-            child: Text(state.glosses.join(' ')),
+            child: Text(
+              state.glosses.join(' '),
+              style: TextStyle(
+                color: Colors.white,
+                backgroundColor: Colors.black54,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),

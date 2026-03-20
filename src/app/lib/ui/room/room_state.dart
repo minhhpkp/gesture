@@ -13,6 +13,7 @@ abstract class RoomState with _$RoomState {
     @Default(false) bool unableToPlaybackAudio,
     @Default(false) bool roomDisconnected,
     bool? activeRecording,
-    @Default(false) bool hasLocalParticipant,    
+    @Default(false) bool hasLocalParticipant,
+    @Default(false) bool isLoading,
   }) = _RoomState;
 }

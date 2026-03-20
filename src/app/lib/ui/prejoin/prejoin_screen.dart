@@ -51,7 +51,7 @@ class PrejoinScreen extends ConsumerWidget {
     ref.listen(prejoinViewModelProvider, (previous, next) {
       if (previous?.value?.isJoinSuccess == null) {
         if (next.value?.isJoinSuccess == true) {
-          unawaited(context.push(Routes.room));
+          context.go(Routes.room);
         } else if (next.value?.isJoinSuccess == false) {
           unawaited(_showFailureDialog(context));
         }
