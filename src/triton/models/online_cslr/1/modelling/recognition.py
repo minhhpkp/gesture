@@ -9,8 +9,7 @@ from modelling.two_stream import S3D_two_stream_v2
 from modelling.four_stream import S3D_four_stream
 from modelling.vit import build_vit
 from utils.misc import get_logger, neq_load_customized, upd_MAE_ckpt_keys
-import glob, os, random, torchvision
-from itertools import groupby
+import random, torchvision
 from modelling.Visualhead import VisualHead, SepConvVisualHead, MarginVisualHead, WeightLearner
 import numpy as np
 import torch.nn.functional as F

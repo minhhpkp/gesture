@@ -1,12 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import LogitsProcessor
 from utils.misc import get_logger
-from modelling.utils import PositionalEncoding, MaskedNorm, PositionwiseFeedForward, MLPHead
-from modelling.S3D_base import SepConv3d
+from modelling.utils import PositionalEncoding, PositionwiseFeedForward
 import math
-import numpy as np
 
 
 class SepConvVisualHead(torch.nn.Module):

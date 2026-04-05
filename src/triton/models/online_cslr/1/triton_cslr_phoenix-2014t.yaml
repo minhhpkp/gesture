@@ -7,8 +7,7 @@ data:
   use_keypoints:
     - pose
     - mouth_half
-    - hand  
-  vocab_file: data/phoenix_2014t/phoenix_iso_with_blank.vocab
+    - hand
   dataset_name: phoenix
   level: word #word or char
   txt_lowercase: true
@@ -33,41 +32,6 @@ data:
     temporal_augmentation:  #deprecated for ISLR
       tmin: 0.5
       tmax: 1.5
-testing:
-  cfg:
-    recognition:
-      beam_size: 10
-training:
-  overwrite: true
-  model_dir: pretrained_models/phoenix-2014t_ISLR
-  random_seed: 321
-  shuffle: True
-  num_workers: 8
-  batch_size: 1 #to-debug!
-  total_epoch: 100
-  keep_last_ckpts: 5
-  validation: 
-    unit: epoch
-    freq: 1
-    cfg:
-      recognition:
-        beam_size: 1
-  optimization:
-    optimizer: Adam
-    learning_rate:
-      default: 1.0e-4
-    weight_decay: 0.001
-    betas:
-    - 0.9
-    - 0.998
-    scheduler: cosineannealing
-    t_max: 100
-det:
-  ckpt: pretrained_models/det/yolov3_d53_320_273e_coco-421362b6.pth
-  config: configs/yolo/yolov3_d53_320_273e_coco.py
-pose:
-  ckpt: pretrained_models/pose/res50_coco_wholebody_256x192-9e37ed88_20201004.pth
-  config: configs/wholebody/2d_kpt_sview_rgb_img/topdown_heatmap/coco-wholebody/res50_coco_wholebody_256x192.py
 model:
   RecognitionNetwork:    
     s3d:
@@ -79,6 +43,8 @@ model:
       pretrained_ckpt: pretrained_models/s3ds_actioncls_ckpt #from K400
       use_block: 5
       freeze_block: 0
+    cslr:
+      pretrained_ckpt: pretrained_models/phoenix-2014t_ISLR/best.ckpt
     heatmap_cfg:
       raw_size:
         - 260

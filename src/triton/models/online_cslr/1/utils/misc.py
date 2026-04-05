@@ -2,12 +2,11 @@ from copyreg import pickle
 import glob
 import os
 import os.path
-import shutil
 import random
 import logging
 from sys import platform
 from logging import Logger
-from typing import Optional
+from typing import Optional, List
 import numpy as np
 
 import torch
@@ -16,8 +15,22 @@ import yaml
 # from torch.utils.tensorboard import SummaryWriter
 import pickle
 import datetime
-from pose import get_part_keypoints_count
 
+Hrnet_Part2index = {
+    'pose': list(range(11)),
+    'hand': list(range(91, 133)),
+    'mouth': list(range(71,91)),
+    'face_others': list(range(23, 71))
+}
+for k_ in ['mouth','face_others', 'hand']:
+    Hrnet_Part2index[k_+'_half'] = Hrnet_Part2index[k_][::2]
+    Hrnet_Part2index[k_+'_1_3'] = Hrnet_Part2index[k_][::3]
+
+def get_part_keypoints_count(used_parts: List[str]) -> int:
+    count = 0
+    for k in used_parts:
+        count += len(Hrnet_Part2index[k])
+    return count
 
 def neq_load_customized(model, pretrained_dict, verbose=True):
     ''' load pre-trained model in a not-equal way,
@@ -117,57 +130,23 @@ def move_to_device(batch, device):
             batch[k] = [e.to(device) for e in v]
     return batch
 
-def make_model_dir(model_dir: str, overwrite: bool = False) -> str:
-    """
-    Create a new directory for the model.
-    :param model_dir: path to model directory
-    :param overwrite: whether to overwrite an existing directory
-    :return: path to model directory
-    """
-    if is_main_process():
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        elif overwrite:
-            shutil.rmtree(model_dir)
-            os.makedirs(model_dir, exist_ok=True)
-        # elif 'debug' not in model_dir:
-        #     raise ValueError('Model dir {} exists!'.format(model_dir))
-    synchronize()
-    return model_dir
-
 def get_logger():
     return logger
     
-def make_logger(model_dir: str, log_file: str = "train.log") -> Logger:
+def make_logger() -> Logger:
     """
     Create a logger for logging the training process.
-    :param model_dir: path to logging directory
-    :param log_file: path to logging file
-    :return: logger object
     """
     global logger
     logger = logging.getLogger(__name__)
     if not logger.handlers:
         logger.setLevel(level=logging.DEBUG)
-        fh = logging.FileHandler("{}/{}".format(model_dir, log_file))
-        fh.setLevel(level=logging.DEBUG)
-        logger.addHandler(fh)
-        formatter = logging.Formatter("%(asctime)s %(message)s")
-        fh.setFormatter(formatter)
-        if platform == "linux":
-            sh = logging.StreamHandler()
-            if not is_main_process():
-                sh.setLevel(logging.ERROR)
-            sh.setFormatter(formatter)
-            logging.getLogger("").addHandler(sh)
-        return logger
-
-# def make_writer(model_dir):
-#     if is_main_process():
-#         writer = SummaryWriter(log_dir=os.path.join(model_dir + "/tensorboard/"))
-#     else:
-#         writer = None
-#     return writer
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
 
 def log_cfg(cfg: dict, logger: Logger, prefix: str = "cfg"):
     """

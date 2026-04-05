@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+pretrained_models
+triton_python_backend_utils.py
+environments/
+test/*.npy
+test/filter_results.json
+test/*.png
+models/**/*.json
+models/**/*.engine
+triton_python_backend_stub

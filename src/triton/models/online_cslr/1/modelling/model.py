@@ -104,6 +104,6 @@ class SignLanguageModel(torch.nn.Module):
         self.eval()
 
 
-def build_model(cfg, cls_num, **kwargs):
+def build_model(cfg, cls_num, **kwargs) -> SignLanguageModel:
     model = SignLanguageModel(cfg, cls_num, **kwargs)
     return model.to(cfg['device'])
