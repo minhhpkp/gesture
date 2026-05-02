@@ -1,0 +1,6 @@
+webhook:
+  # The API key to use in order to sign the message
+  # This must match one of the keys LiveKit is configured with
+  api_key: 'devkey'
+  urls:
+    - 'http://localhost:3000/webhooks/livekit'

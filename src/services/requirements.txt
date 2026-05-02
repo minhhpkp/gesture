@@ -1,0 +1,7 @@
+livekit
+livekit-api
+tritonclient[grpc]
+numpy
+opencv-python
+fastapi[standard]
+pydantic-settings

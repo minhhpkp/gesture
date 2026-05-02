@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:gesture/di/providers.dart';
+import 'package:gesture/ui/room/control/outlined_icon_button.dart';
 import 'package:gesture/ui/room/control/sign_recognition/select_video_track_dialog.dart';
+import 'package:gesture/ui/room/control/sign_recognition/sign_recognition_state.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import 'package:flutter/material.dart';
@@ -85,8 +87,9 @@ class ControlBar extends ConsumerWidget {
         );
         controlVm.screenShareNotified();
         if (source != null) {
-          print('cancelled screenshare');
           await controlVm.setDesktopCapturerSource(source);
+        } else {
+          print('cancelled screenshare');
         }
       }
       if (previous?.value?.shouldNotifyScreenShareUnavailable != true &&
@@ -100,7 +103,7 @@ class ControlBar extends ConsumerWidget {
     ref.listen(signRecognitionNotifierProvider, (previous, next) async {
       if (previous?.errorMessage == null && next.errorMessage != null) {
         await _showSignRecognitionErrorDialog(context, next.errorMessage!);
-        if (context.mounted) signRecognitionVm.clearError();
+        if (context.mounted) signRecognitionVm.errorShown();
       }
     });
 
@@ -130,16 +133,40 @@ class ControlBar extends ConsumerWidget {
               children: [
                 if (signRecognitionState.isLoading)
                   CircularProgressIndicator()
-                else if (signRecognitionState.inProgress)
-                  IconButton(
-                    icon: Icon(Icons.stop),
-                    onPressed: signRecognitionVm.stopSignRecognition,
-                  )
                 else
-                  IconButton(
-                    icon: Icon(Icons.start),
-                    onPressed: handleStartSignRecognitionClick,
-                  ),
+                  ...switch (signRecognitionState.sessionState) {
+                    SessionState.STOPPED => [
+                      OutlinedIconButton(
+                        onPressed: handleStartSignRecognitionClick,
+                        label: const Text('Start sign recognition'),
+                        icon: const Icon(Icons.person),
+                      ),
+                    ],
+                    SessionState.RUNNING => [
+                      OutlinedIconButton(
+                        onPressed: signRecognitionVm.pauseSignRecognition,
+                        label: const Text('Pause sign recognition'),
+                        icon: const Icon(Icons.pause),
+                      ),
+                      OutlinedIconButton(
+                        onPressed: signRecognitionVm.stopSignRecognition,
+                        label: const Text('Stop sign recognition'),
+                        icon: const Icon(Icons.stop),
+                      ),
+                    ],
+                    SessionState.PAUSED => [
+                      OutlinedIconButton(
+                        onPressed: signRecognitionVm.resumeSignRecognition,
+                        label: const Text('Resume sign recognition'),
+                        icon: const Icon(Icons.play_arrow),
+                      ),
+                      OutlinedIconButton(
+                        onPressed: signRecognitionVm.stopSignRecognition,
+                        label: const Text('Stop sign recognition'),
+                        icon: const Icon(Icons.stop),
+                      ),
+                    ],
+                  },
                 if (state.isMicrophoneEnabled)
                   if (lkPlatformIs(PlatformType.android))
                     IconButton(
@@ -307,8 +334,8 @@ class ControlBar extends ConsumerWidget {
               ],
             )
           : const Center(
-            child: CircularProgressIndicator(),
-          )
+              child: CircularProgressIndicator(),
+            ),
     );
   }
 }

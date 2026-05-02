@@ -129,7 +129,7 @@ class TritonPythonModel:
         all_images = []
         responses = [None] * num_requests
         for i, request in enumerate(requests):
-            if request.is_cancelled():
+            if callable(getattr(request, 'is_cancelled', None)) and request.is_cancelled():
                 responses[i] = pb_utils.InferenceResponse(
                     error=pb_utils.TritonError("Request cancelled", pb_utils.TritonError.CANCELLED)
                 )
@@ -139,8 +139,10 @@ class TritonPythonModel:
             image_np = image_input.as_numpy()
             all_images.append(image_np)
 
-        batched_images = np.concatenate(all_images, axis=0)
-        batched_output = self.detector.batch(batched_images)
+        # if not all requests are cancelled
+        if len(all_images) > 0:
+            batched_images = np.concatenate(all_images, axis=0)
+            batched_output = self.detector.batch(batched_images)
 
         cur_idx = 0 # current valid input index
         offset = 0

@@ -64,21 +64,11 @@ class SignLanguageModel(torch.nn.Module):
             raise ValueError
 
 
-    def forward(self, is_train, labels, sgn_videos, sgn_keypoints, epoch, **kwargs):
+    def forward(self, labels, sgn_videos, sgn_keypoints, epoch, **kwargs):
         if self.task == 'ISLR':
-            model_outputs = self.recognition_network(is_train, labels, sgn_videos, sgn_keypoints, epoch, **kwargs)
-        elif self.task == 'G2G':
-            translation_inputs = kwargs.pop('translation_inputs', {})
-            if self.input_type in ['feature', 'prob']:
-                # print(translation_inputs['input_feature'].shape)
-                mapped_fea = self.mapper(translation_inputs['input_feature'])
-                translation_inputs['input_feature'] = mapped_fea
-            model_outputs = self.translation_network(**translation_inputs)
-            model_outputs['total_loss'] = model_outputs['translation_loss']
-        elif self.task == 'bag_denoise':
-            denoise_inputs = kwargs.pop('denoise_inputs', {})
-            model_outputs = self.denoiser(**denoise_inputs)
-            model_outputs['total_loss'] = model_outputs['denoise_loss']
+            # self.logger.info("SignLanguageModel::forward: task=ISLR")
+            model_outputs = self.recognition_network(labels, sgn_videos, sgn_keypoints, epoch, **kwargs)
+
         return model_outputs
     
 

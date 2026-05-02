@@ -16,6 +16,9 @@ sealed class SignRecognitionSessionException implements Exception {
       case UnauthorizedSessionStopException.code:
         return UnauthorizedSessionStopException();
     }
+    if (ServerError.codes.contains(error.code)) {
+      return ServerError();
+    }
     return UnknownRpcException(error);
   }
 }
@@ -42,6 +45,16 @@ class NoActiveSessionException extends SignRecognitionSessionException {
 class UnauthorizedSessionStopException extends SignRecognitionSessionException {
   static const code = 3002;
   UnauthorizedSessionStopException() : super('User is not the current participant using the sign recognition service');
+}
+
+class ServerError extends SignRecognitionSessionException {
+  static const codes = [
+    1401, // RECIPIENT_NOT_FOUND
+    1503, // RECIPIENT_DISCONNECTED
+    1501, // CONNECTION_TIMEOUT
+    1502, // RESPONSE_TIMEOUT
+  ]; 
+  ServerError() : super('Server has experienced an error, please try again later');
 }
 
 class UnknownRpcException extends SignRecognitionSessionException {

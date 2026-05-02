@@ -142,7 +142,7 @@ class TritonPythonModel:
         all_keypoints = []
         cancelled_indices = []
         for i, request in enumerate(requests):
-            if request.is_cancelled():
+            if callable(getattr(request, 'is_cancelled', None)) and request.is_cancelled():
                 cancelled_indices.append(i)
                 continue
 
@@ -151,15 +151,19 @@ class TritonPythonModel:
             keypoints_inp = pb_utils.get_input_tensor_by_name(request, 'KEYPOINTS')
             all_keypoints.append(keypoints_inp.as_numpy())
 
-        batched_frames = torch.from_numpy(np.concatenate(all_frames, axis=0)).float().div(255.0).cuda(device=self.device).contiguous()
-        batched_keypoints = torch.as_tensor(np.concatenate(all_keypoints, axis=0), device=self.device)
+        # if not all requests are cancelled
+        if len(all_frames) > 0:
+            frames = np.concatenate(all_frames, axis=0)
+            frames = (frames / 255.0 - 0.5) / 0.5             # normalize to [-1, 1]
+            batched_frames = torch.as_tensor(frames, dtype=torch.float32, device=self.device).contiguous()
+            batched_keypoints = torch.as_tensor(np.concatenate(all_keypoints, axis=0), device=self.device).contiguous()
         
         # logger = pb_utils.Logger
         # logger.log_info(f'win frame shape = {batched_frames.shape}')
         # logger.log_info(f'win kp shape = {batched_keypoints.shape}')
 
         with torch.inference_mode():
-            forward_output = self.model(is_train=False, labels=self.label, sgn_videos=[batched_frames], sgn_keypoints=[batched_keypoints], epoch=self.epoch)
+            forward_output = self.model(labels=self.label, sgn_videos=[batched_frames], sgn_keypoints=[batched_keypoints], epoch=self.epoch)
         batched_output = forward_output['ensemble_last_gloss_logits']
 
         cur_idx = 0 # current valid input index

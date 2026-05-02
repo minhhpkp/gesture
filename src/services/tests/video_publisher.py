@@ -1,21 +1,23 @@
 import asyncio
 from livekit import api, rtc
 from signal import SIGINT, SIGTERM
-from dotenv import load_dotenv
+from services.settings import LiveKitSettings
+from services.di import get_livekit_settings
 from typing import Set
 import argparse
 import cv2
-import os
 from time import perf_counter
-import logging
+from services.utils.logging import get_logger
 import json
 
-# ensure LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET are set
-load_dotenv('../.env')
+logger = get_logger(__name__)
 
-def build_token(*, room_name: str, identity: str, name: str) -> str:
+def build_token(lk_settings: LiveKitSettings, room_name: str, identity: str, name: str) -> str:
     return (
-        api.AccessToken()
+        api.AccessToken(
+            api_key=lk_settings.api_key,
+            api_secret=lk_settings.api_secret
+        )
         .with_identity(identity)
         .with_name(name)
         .with_grants(api.VideoGrants(room_join=True, room=room_name))
@@ -44,7 +46,7 @@ async def stream_video_file(
     out_width: int,
     out_height: int,
     fps: float,
-    loop_video: bool,
+    loop_video: int,
 ):
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
@@ -55,7 +57,7 @@ async def stream_video_file(
     if fps <= 0:
         fps = 30.0
 
-    logging.info(f'Publishing video with width={out_width} height={out_height} FPS={fps}')
+    logger.info(f'Publishing video with width={out_width} height={out_height} FPS={fps}')
 
     frame_interval = 1.0 / fps
     next_frame_time = perf_counter()
@@ -64,7 +66,8 @@ async def stream_video_file(
     while True:
         ok, bgr = cap.read()
         if not ok:
-            if loop_video:
+            if loop_video > 0:
+                loop_video -= 1
                 cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                 frame_index = 0
                 continue
@@ -99,38 +102,45 @@ def add_task(coro, loop: asyncio.AbstractEventLoop):
 
 async def main(room: rtc.Room, loop: asyncio.AbstractEventLoop, args: argparse.Namespace):
     async def start_sign_recognition(pub_sid: str):
+        await asyncio.sleep(3)
         try:
-            logging.info("Sending RPC request for start_sign_recognition")
+            logger.info("Sending RPC request for start_sign_recognition")
             response = await room.local_participant.perform_rpc(
                 destination_identity='connector',
                 method='start_sign_recognition',
                 payload=json.dumps({'pub_sid': pub_sid})
             )
-            logging.info(f"RPC response: {response}")
+            logger.info(f"RPC response: {response}")
         except Exception as e:
-            logging.warning(f"RPC call failed: {e}")
+            logger.warning(f"RPC call failed: {e}")
 
     @room.on("local_track_published")
     def on_local_track_published(
         publication: rtc.LocalTrackPublication,
         track: rtc.LocalAudioTrack | rtc.LocalVideoTrack,
     ):
-        logging.info("local track published: %s", publication.sid)
+        logger.info("local track published: %s", publication.sid)
         if track.kind == rtc.TrackKind.KIND_VIDEO:
             add_task(start_sign_recognition(publication.sid), loop)
 
-    url = args.url or os.getenv("LIVEKIT_URL")
+    lk_settings = get_livekit_settings()
+    url = args.url or lk_settings.server_url
     if not url:
         raise RuntimeError("Missing LIVEKIT_URL (or pass --url).")
 
-    token = build_token(room_name=args.room, identity=args.identity, name=args.name)
+    token = build_token(
+        lk_settings=lk_settings,
+        room_name=args.room,
+        identity=args.identity,
+        name=args.name
+    )
 
-    logging.info("Connecting to %s ...", url)
+    logger.info("Connecting to %s ...", url)
     await room.connect(url, token)
-    logging.info("Connected to room: %s", room.name)
+    logger.info("Connected to room: %s", room.name)
     
     def handler(reader: rtc.TextStreamReader, sender_identity: str):
-        logging.info('stream sent by %s', sender_identity)
+        logger.info('stream sent by %s', sender_identity)
         async def read():
             async for chunk in reader:
                 print(chunk, end=' ', flush=True)
@@ -157,7 +167,7 @@ async def main(room: rtc.Room, loop: asyncio.AbstractEventLoop, args: argparse.N
     )
 
     publication = await room.local_participant.publish_track(track, options)
-    logging.info("Published track sid=%s name=%s", publication.sid, track.name)
+    logger.info("Published track sid=%s name=%s", publication.sid, track.name)
 
     # Keep pushing frames continuously (important even for “static” content)
     await stream_video_file(
@@ -169,7 +179,7 @@ async def main(room: rtc.Room, loop: asyncio.AbstractEventLoop, args: argparse.N
             loop_video=args.loop,
         )
 
-    logging.info("End of video")
+    logger.info("End of video")
     
 
 def parse_args() -> argparse.Namespace:
@@ -182,11 +192,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--fps", type=float, default=0.0, help="Override FPS (0 = use file FPS)")
     p.add_argument("--bitrate", type=int, default=3_000_000)
     p.add_argument("--simulcast", action="store_true")
-    p.add_argument("--loop", action="store_true", help="Loop the video when it ends")
+    p.add_argument("--loop", type=int, default=1, help="How many times to loop the video")
     return p.parse_args()
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logger.basicConfig(level=logger.INFO)
 
     args = parse_args()
 

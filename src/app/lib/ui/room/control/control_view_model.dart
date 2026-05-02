@@ -128,7 +128,7 @@ class ControlViewModel extends StreamNotifier<ControlState> {
     }
   }
 
-  Future<bool> _requestBackgroundPermission([bool isRetry = false]) async {
+  Future<void> _requestBackgroundPermission([bool isRetry = false]) async {
     // Required for android screenshare.
     try {
       bool hasPermissions = await FlutterBackground.hasPermissions;
@@ -142,16 +142,17 @@ class ControlViewModel extends StreamNotifier<ControlState> {
         hasPermissions = await FlutterBackground.initialize(androidConfig: androidConfig);
       }
       if (hasPermissions && !FlutterBackground.isBackgroundExecutionEnabled) {
-        return await FlutterBackground.enableBackgroundExecution();
+        await FlutterBackground.enableBackgroundExecution();
       }
     } catch (e) {
       if (!isRetry) {
-        await Future<void>.delayed(const Duration(seconds: 1));
-        return await _requestBackgroundPermission(true);
+        return await Future<void>.delayed(
+          const Duration(seconds: 1),
+          () => _requestBackgroundPermission(true),
+        );
       }
       print('could not publish video: $e');
     }
-    return false;
   }
 
   Future<void> enableScreenShare() async {
@@ -159,22 +160,24 @@ class ControlViewModel extends StreamNotifier<ControlState> {
       if (!_desktopScreenShareNotificationDisplayChanges.isClosed) {
         _desktopScreenShareNotificationDisplayChanges.add(true);
       }
-    } else if (lkPlatformIs(PlatformType.android)) {
+      return;
+    }
+    if (lkPlatformIs(PlatformType.android)) {
       // Android specific
       final hasCapturePermission = await Helper.requestCapturePermission();
       if (!hasCapturePermission) {
         return;
       }
 
-      final hasBackgroundPermission = await _requestBackgroundPermission();
-      if (hasBackgroundPermission) {
-        await _localParticipant.setScreenShareEnabled(true, captureScreenAudio: true);
-      }
-    } else if (lkPlatformIsWebMobile()) {
+      await _requestBackgroundPermission();
+    }
+    if (lkPlatformIsWebMobile()) {
       if (!_screenScreenUnavailableNotificationDisplayChanges.isClosed) {
         _screenScreenUnavailableNotificationDisplayChanges.add(true);
       }
+      return;
     }
+    await _localParticipant.setScreenShareEnabled(true, captureScreenAudio: true);
   }
 
   Future<void> setDesktopCapturerSource(DesktopCapturerSource source) async {
@@ -187,7 +190,6 @@ class ControlViewModel extends StreamNotifier<ControlState> {
         ),
       );
       await _localParticipant.publishVideoTrack(track);
-      await _localParticipant.setScreenShareEnabled(true, captureScreenAudio: true);
     } catch (e) {
       print('could not publish video: $e');
     }
@@ -212,4 +214,6 @@ class ControlViewModel extends StreamNotifier<ControlState> {
   Future<void> disconnect() async {
     await _room.disconnect();
   }
+
+  Future<void> publishVideo() async {}
 }

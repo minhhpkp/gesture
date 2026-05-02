@@ -10,4 +10,13 @@ test/filter_results.json
 test/*.png
 models/**/*.json
 models/**/*.engine
+models/**/*.plan
 triton_python_backend_stub
+
+/cudnn-linux-x86_64-8.9.7.29_cuda11-archive/
+/TensorRT-8.6.1.6.Linux.x86_64-gnu.cuda-11.8/
+
+/analyze/*trace*.json
+/analyze/*.png
+/test?*/
+/models/res50/lib*.so

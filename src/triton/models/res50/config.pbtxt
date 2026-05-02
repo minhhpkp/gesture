@@ -1,0 +1,61 @@
+name: "res50"
+backend: "tensorrt"
+
+max_batch_size: 4
+
+input [{
+  name: "input"
+  data_type: TYPE_FP32
+  dims: [3, 256, 192]
+}]
+output [{
+  name: "output"
+  data_type: TYPE_FP32
+  dims: [133, 64, 48]
+}]
+
+instance_group [{ kind: KIND_GPU }]
+
+model_warmup [
+  {
+    name: "random1"
+    batch_size: 1
+    inputs {
+      key: "input"
+      value {
+        data_type: TYPE_FP32
+        dims: [3, 256, 192]
+        random_data: true
+      }
+    }
+    count: 5
+  },
+  {
+    name: "random2"
+    batch_size: 2
+    inputs {
+      key: "input"
+      value {
+        data_type: TYPE_FP32
+        dims: [3, 256, 192]
+        random_data: true
+      }
+    }
+    count: 5
+  },
+  {
+    name: "random4"
+    batch_size: 4
+    inputs {
+      key: "input"
+      value {
+        data_type: TYPE_FP32
+        dims: [3, 256, 192]
+        random_data: true
+      }
+    }
+    count: 10
+  }
+]
+
+dynamic_batching { preferred_batch_size: [4] }

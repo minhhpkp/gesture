@@ -454,147 +454,34 @@ class RecognitionNetwork(torch.nn.Module):
             transformed_x = transformed_x.view(B, T, C_, H_o, W_o)
         return transformed_x    
 
+    def augment_preprocess_heatmap(self, sgn_heatmaps):
+        hm_h, hm_w = self.heatmap_cfg['input_size'], self.heatmap_cfg['input_size']
 
-    def augment_preprocess_inputs(self, is_train, sgn_videos=None, sgn_heatmaps=None, sgn_videos_low=None, sgn_heatmaps_low=None):
-        rgb_h, rgb_w = self.transform_cfg.get('img_size',224), self.transform_cfg.get('img_size',224)
-        if sgn_heatmaps!=None:
-            hm_h, hm_w = self.heatmap_cfg['input_size'], self.heatmap_cfg['input_size']
-            #factor_h, factor_w= hm_h/rgb_h, hm_w/rgb_w ！！
-            if sgn_videos!=None:
-                hm_h0, hm_w0 = sgn_heatmaps.shape[-2],sgn_heatmaps.shape[-1]  #B,T,C,H,W
-                B, T, C, rgb_h0, rgb_w0 = sgn_videos.shape  #B,T,C,H,W
-                factor_h, factor_w= hm_h0/rgb_h0, hm_w0/rgb_w0 # ！！
-        if is_train:
-            p_hflip = self.transform_cfg.get('p_hflip', 0.0)
-            random_hflip = 0
-            if p_hflip > 0:
-                random_hflip = random.random()
-            if sgn_videos!=None:
-                if self.transform_cfg.get('color_jitter',False) and random.random()<0.3:
-                    color_jitter_op = torchvision.transforms.ColorJitter(0.4,0.4,0.4,0.1)
-                    sgn_videos = color_jitter_op(sgn_videos) # B T C H W
-                    if self.input_streams == ['rgb', 'rgb']:
-                        sgn_heatmaps = color_jitter_op(sgn_heatmaps)
-                    if sgn_videos_low is not None:
-                        sgn_videos_low = color_jitter_op(sgn_videos_low)
-                if self.transform_cfg.get('gaussian_blur',False):
-                    gaussian_blur_op = torchvision.transforms.GaussianBlur(kernel_size=3)
-                    sgn_videos = gaussian_blur_op(sgn_videos.view(-1, C, rgb_h0, rgb_w0)) # B T C H W
-                    sgn_videos = sgn_videos.view(B,T,C,rgb_h0,rgb_w0)
-                if self.transform_cfg.get('random_aug', False):
-                    randaug_op = torchvision.transforms.RandAugment()
-                    sgn_videos = randaug_op(sgn_videos.view(-1, C, rgb_h0, rgb_w0)) # B T C H W
-                    sgn_videos = sgn_videos.view(B,T,C,rgb_h0,rgb_w0)
-                elif self.transform_cfg.get('random_resized_crop', True):
-                    i,j,h,w = torchvision.transforms.RandomResizedCrop.get_params(
-                        img=sgn_videos,
-                        scale=(self.transform_cfg.get('bottom_area',0.2), 1.0), 
-                        ratio=(self.transform_cfg.get('aspect_ratio_min',3./4), 
-                            self.transform_cfg.get('aspect_ratio_max',4./3)))
-                    sgn_videos = self.apply_spatial_ops(
-                        sgn_videos, 
-                        spatial_ops_func=lambda x:torchvision.transforms.functional.resized_crop(
-                            x, i, j, h, w, [rgb_h, rgb_w]))
-                    if sgn_videos_low is not None:
-                        sgn_videos_low = self.apply_spatial_ops(
-                            sgn_videos_low, 
-                            spatial_ops_func=lambda x:torchvision.transforms.functional.resized_crop(
-                                x, i, j, h, w, [rgb_h, rgb_w]))
-                else:
-                    i,j,h,w = torchvision.transforms.RandomCrop.get_params(img=sgn_videos, output_size=[rgb_h, rgb_w])
-                    sgn_videos = self.apply_spatial_ops(
-                        sgn_videos, 
-                        spatial_ops_func=lambda x:torchvision.transforms.functional.crop(
-                            x, i, j, h, w))
-                
-                # if random_hflip < p_hflip:
-                #     # print('flip video')
-                #     sgn_videos = torchvision.transforms.functional.hflip(sgn_videos)
+        spatial_op = torchvision.transforms.Resize([hm_h, hm_w])
+        sgn_heatmaps = self.apply_spatial_ops(sgn_heatmaps, spatial_op)
 
-            if sgn_heatmaps!=None:
-                if sgn_videos!=None and not self.transform_cfg.get('random_aug', False):
-                    i2, j2, h2, w2 = int(i*factor_h), int(j*factor_w), int(h*factor_h), int(w*factor_w)
-                else:
-                    i2, j2, h2, w2 = torchvision.transforms.RandomResizedCrop.get_params(
-                        img=sgn_heatmaps,
-                        scale=(self.transform_cfg.get('bottom_area',0.2), 1.0), 
-                        ratio=(self.transform_cfg.get('aspect_ratio_min',3./4), 
-                            self.transform_cfg.get('aspect_ratio_max',4./3)))
-                if self.transform_cfg.get('random_resized_crop', True):
-                    sgn_heatmaps = self.apply_spatial_ops(
-                            sgn_heatmaps,
-                            spatial_ops_func=lambda x:torchvision.transforms.functional.resized_crop(
-                            x, i2, j2, h2, w2, [hm_h, hm_w]))
-                    if sgn_heatmaps_low is not None:
-                        sgn_heatmaps_low = self.apply_spatial_ops(
-                            sgn_heatmaps_low,
-                            spatial_ops_func=lambda x:torchvision.transforms.functional.resized_crop(
-                            x, i2, j2, h2, w2, [hm_h, hm_w]))
-                else:
-                    sgn_heatmaps = self.apply_spatial_ops(
-                                    sgn_heatmaps, 
-                                    spatial_ops_func=lambda x:torchvision.transforms.functional.crop(
-                                        x, i2, j2, h2, w2))
-                    # need to resize to 112x112
-                    sgn_heatmaps = self.apply_spatial_ops(
-                                    sgn_heatmaps, 
-                                    spatial_ops_func=lambda x:torchvision.transforms.functional.resize(x, [hm_h, hm_w]))
-                
-                # if random_hflip < p_hflip:
-                #     # print('flip hmap')
-                #     sgn_heatmaps = torchvision.transforms.functional.hflip(sgn_heatmaps)
+        sgn_heatmaps = (sgn_heatmaps-0.5)/0.5
+        if sgn_heatmaps.ndim > 4:
+            sgn_heatmaps = sgn_heatmaps.permute(0,2,1,3,4).float()
         else:
-            if sgn_videos != None:
-                spatial_ops = []
-                if self.transform_cfg.get('center_crop', False)==True:
-                    spatial_ops.append(torchvision.transforms.CenterCrop(
-                        self.transform_cfg['center_crop_size']))
-                spatial_ops.append(torchvision.transforms.Resize([rgb_h, rgb_w]))
-                spatial_ops = torchvision.transforms.Compose(spatial_ops)
-                sgn_videos = self.apply_spatial_ops(sgn_videos, spatial_ops)
-                if sgn_videos_low is not None:
-                    sgn_videos_low = self.apply_spatial_ops(sgn_videos_low, spatial_ops)
-            if sgn_heatmaps != None:
-                spatial_ops = []
-                if self.transform_cfg.get('center_crop', False)==True:
-                    spatial_ops.append(
-                        torchvision.transforms.CenterCrop(
-                            [int(self.transform_cfg['center_crop_size']*factor_h),
-                            int(self.transform_cfg['center_crop_size']*factor_w)]))
-                spatial_ops.append(torchvision.transforms.Resize([hm_h, hm_w]))
-                spatial_ops = torchvision.transforms.Compose(spatial_ops)
-                sgn_heatmaps = self.apply_spatial_ops(sgn_heatmaps, spatial_ops)
-                if sgn_heatmaps_low is not None:
-                    sgn_heatmaps_low = self.apply_spatial_ops(sgn_heatmaps_low, spatial_ops)
+            sgn_heatmaps = sgn_heatmaps.float()
 
-        if sgn_videos!=None:
-            #convert to BGR for S3D
-            if 'r3d' not in self.cfg and 'x3d' not in self.cfg and 'vit' not in self.cfg:
-                sgn_videos = sgn_videos[:,:,[2,1,0],:,:] # B T 3 H W
-            sgn_videos = sgn_videos.float()
-            sgn_videos = (sgn_videos-0.5)/0.5
-            sgn_videos = sgn_videos.permute(0,2,1,3,4).float() # B C T H W
-        if sgn_videos_low!=None:
-            #convert to BGR for S3D
-            if 'r3d' not in self.cfg and 'x3d' not in self.cfg and 'vit' not in self.cfg:
-                sgn_videos_low = sgn_videos_low[:,:,[2,1,0],:,:] # B T 3 H W
-            sgn_videos_low = sgn_videos_low.float()
-            sgn_videos_low = (sgn_videos_low-0.5)/0.5
-            sgn_videos_low = sgn_videos_low.permute(0,2,1,3,4).float() # B C T H W
-        if sgn_heatmaps!=None:
-            sgn_heatmaps = (sgn_heatmaps-0.5)/0.5
-            if sgn_heatmaps.ndim > 4:
-                sgn_heatmaps = sgn_heatmaps.permute(0,2,1,3,4).float()
-            else:
-                sgn_heatmaps = sgn_heatmaps.float()
-        if sgn_heatmaps_low!=None:
-            sgn_heatmaps_low = (sgn_heatmaps_low-0.5)/0.5
-            if sgn_heatmaps_low.ndim > 4:
-                sgn_heatmaps_low = sgn_heatmaps_low.permute(0,2,1,3,4).float()
-            else:
-                sgn_heatmaps_low = sgn_heatmaps_low.float()
-        return sgn_videos, sgn_heatmaps, sgn_videos_low, sgn_heatmaps_low
+        return sgn_heatmaps
+
     
+    def preprocess_heatmaps(self, sgn_heatmaps):
+        hm_h, hm_w = self.heatmap_cfg['input_size'], self.heatmap_cfg['input_size']
+        spatial_ops = torchvision.transforms.Resize([hm_h, hm_w])
+        sgn_heatmaps = self.apply_spatial_ops(sgn_heatmaps, spatial_ops)
+
+        sgn_heatmaps = (sgn_heatmaps-0.5)/0.5
+        if sgn_heatmaps.ndim > 4:
+            sgn_heatmaps = sgn_heatmaps.permute(0,2,1,3,4).float()
+        else:
+            sgn_heatmaps = sgn_heatmaps.float()
+
+        return sgn_heatmaps
+
 
     def mixup(self, mixup_param, ip_a, ip_b, labels, cross=False, cat=False, do_joint_mixup=False, 
             ip_c=None, ip_d=None, low2high=False, start_idx=None, bag_labels=None):
@@ -605,12 +492,14 @@ class RecognitionNetwork(torch.nn.Module):
         index = torch.arange(labels.shape[0])
         do_mixup = False
         if mixup_param and cross:
+            get_logger().info("mixing up")
             if cat:
                 mix_a = torch.cat([0.5 * ip_a, 0.5 * ip_b], dim=-1)
             else:
                 mix_a = 0.5 * ip_a + 0.5 * ip_b
         
         if mixup_param and self.training:
+            get_logger().info("mixing up")
             prob, alpha = map(float, mixup_param.split('_'))
             if random.random() < prob or do_joint_mixup:
                 # do mixup
@@ -654,7 +543,7 @@ class RecognitionNetwork(torch.nn.Module):
         return mix_a, mix_b, mix_c, mix_d, y_a, y_b, lam, index, do_mixup
 
 
-    def _forward_impl(self, is_train, labels, sgn_videos=None, sgn_keypoints=None, epoch=0, **kwargs):
+    def _forward_impl(self, labels, sgn_videos=None, sgn_keypoints=None, epoch=0, **kwargs):
         s3d_outputs = []
         traj_inputs = None
         bag_labels = kwargs.pop('bag_labels', None)
@@ -664,6 +553,7 @@ class RecognitionNetwork(torch.nn.Module):
         with torch.no_grad():
             #1. generate heatmaps
             if 'keypoint' in self.input_streams or 'trajectory' in self.input_streams:
+                # get_logger().info("RecognitionNetwork::_forward_impl: generating heatmap")
                 assert sgn_keypoints != None
                 sgn_heatmaps = self.generate_batch_heatmap(sgn_keypoints, self.heatmap_cfg) #B,T,N,H,W or B,N,H,W
                 if 'trajectory' in self.input_streams:
@@ -713,8 +603,9 @@ class RecognitionNetwork(torch.nn.Module):
             if len(self.input_streams)==4:
                 sgn_heatmaps_low = self.generate_batch_heatmap(sgn_keypoints_low, self.heatmap_cfg)
             
-            #2. augmentation and permute(colorjitter, randomresizedcrop/centercrop+resize, normalize-0.5~0.5, channelswap for RGB)
-            sgn_videos, sgn_heatmaps, sgn_videos_low, sgn_heatmaps_low = self.augment_preprocess_inputs(is_train, sgn_videos, sgn_heatmaps, sgn_videos_low, sgn_heatmaps_low)
+            # get_logger().info("RecognitionNetwork::_forward_impl: augment preprocess inputs")
+            #2. resize, normalize-0.5~0.5, permute
+            sgn_heatmaps = self.preprocess_heatmaps(sgn_heatmaps)
 
             #mixup
             mixup_param = self.transform_cfg.get('mixup', None)
@@ -1211,10 +1102,11 @@ class RecognitionNetwork(torch.nn.Module):
         return outputs
 
 
-    def forward(self, is_train, labels, sgn_videos=None, sgn_keypoints=None, epoch=0, **kwargs):
+    def forward(self, labels, sgn_videos=None, sgn_keypoints=None, epoch=0, **kwargs):
         if len(sgn_videos) == 1:
             # print('video shape: ', sgn_videos[0].shape)
-            return self._forward_impl(is_train, labels, sgn_videos=sgn_videos[0], sgn_keypoints=sgn_keypoints[0], epoch=epoch, **kwargs)
+            # get_logger().info("RecognitionNetwork::forward: len=1")
+            return self._forward_impl(labels, sgn_videos=sgn_videos[0], sgn_keypoints=sgn_keypoints[0], epoch=epoch, **kwargs)
 
         else:
             if len(self.input_streams) == 1:
@@ -1224,7 +1116,7 @@ class RecognitionNetwork(torch.nn.Module):
                 for s_videos, s_keypoints in zip(sgn_videos, sgn_keypoints):
                     n_frames = s_videos.shape[1]
                     # print(n_frames)
-                    temp_ops = self._forward_impl(is_train, labels, sgn_videos=s_videos, sgn_keypoints=s_keypoints, epoch=epoch, **kwargs)
+                    temp_ops = self._forward_impl(labels, sgn_videos=s_videos, sgn_keypoints=s_keypoints, epoch=epoch, **kwargs)
                     for k, v in temp_ops.items():
                         outputs[str(n_frames)+'_'+k] = v
                         if 'total_loss' in k:
@@ -1238,11 +1130,11 @@ class RecognitionNetwork(torch.nn.Module):
             
             elif len(self.input_streams) == 4:
                 # print(sgn_videos[0].shape, sgn_videos[1].shape, sgn_keypoints[0].shape, sgn_keypoints[1].shape)
-                return self._forward_impl(is_train, labels, sgn_videos=sgn_videos[0], sgn_keypoints=sgn_keypoints[0], epoch=epoch,
+                return self._forward_impl(labels, sgn_videos=sgn_videos[0], sgn_keypoints=sgn_keypoints[0], epoch=epoch,
                                         sgn_videos_low=sgn_videos[1], sgn_keypoints_low=sgn_keypoints[1], **kwargs)
             
             elif len(self.input_streams) == 2:
                 sgn_videos, sgn_keypoints = sgn_videos
                 # print('video1 shape: ', sgn_videos.shape)
                 # print('video2 shape: ', sgn_keypoints.shape)
-                return self._forward_impl(is_train, labels, sgn_videos=sgn_videos, sgn_keypoints=sgn_keypoints, epoch=epoch, **kwargs)
+                return self._forward_impl(labels, sgn_videos=sgn_videos, sgn_keypoints=sgn_keypoints, epoch=epoch, **kwargs)

@@ -48,17 +48,16 @@ def main():
     args = parse_args()
     client = grpcclient.InferenceServerClient(url=args.server_url)
 
-    all_imgs = []
+    all_frames = []
     folder = Path(args.frames_path).resolve()
     for file_path in sorted(folder.glob("images*.png")):
         if Path.is_file(file_path):
-            img = cv2.imread(file_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            all_imgs.append(img)
+            frame = cv2.imread(file_path)                   
+            frame = cv2.resize(frame, (224, 224))          # resize
+            all_frames.append(frame)
     
-    imgs = np.stack(all_imgs, axis=0)
-    imgs = imgs.transpose(0, 3, 1, 2)  # N, H, W, 3 -> N, 3, H, W
-    print(f'imgs dtype={imgs.dtype} shape={imgs.shape}')
+    frames = np.stack(all_frames, axis=0)  # N, H, W, C
+    print(f'imgs dtype={frames.dtype} shape={frames.shape}')
     
     with open(args.vocab_file, 'rb') as f:
         vocab = json.load(f)
@@ -90,7 +89,8 @@ def main():
 
 
     def batched_clsr_inference():
-        batched_window_frames = np.stack(current_window_frames, axis=0)
+        batched_window_frames = np.stack(current_window_frames, axis=0)  # B, T, H, W, C
+        batched_window_frames = np.transpose(batched_window_frames, (0, 4, 1, 2, 3)) # B, C, T, H, W
         # print(f'batch frames shape = {batched_window_frames.shape}')
         inp_clips = grpcclient.InferInput('CLIP', batched_window_frames.shape, 'UINT8')
         inp_clips.set_data_from_numpy(batched_window_frames)
@@ -114,10 +114,10 @@ def main():
         # for idx in gls_indices:
             # handle_output(idx)
 
-    for begin in range(0, imgs.shape[0] - args.window_size + 1, args.stride):
+    for begin in range(0, frames.shape[0] - args.window_size + 1, args.stride):
         end = begin + args.window_size
         print(f'\nwin begin={begin}, end={end}', end='', flush=True)
-        window_frames = imgs[begin:end]
+        window_frames = frames[begin:end]
         current_window_frames.append(window_frames)
         window_keypoints = all_used_kp_np[begin:end]
         current_window_keypoints.append(window_keypoints)

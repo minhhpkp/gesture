@@ -23,9 +23,66 @@ output [
   }
 ]
 
-instance_group [{ kind: KIND_GPU }]
+instance_group [{
+  kind: KIND_GPU
+}]
+
+model_warmup [
+  {
+    name: "random1"
+    batch_size: 1
+    inputs {
+      key: "IMAGES"
+      value {
+        data_type: TYPE_UINT8
+        dims: [ 1, 320, 320, 3 ]
+        random_data: true
+      }
+    }
+    count: 5
+  },
+  {
+    name: "random4"
+    batch_size: 1
+    inputs {
+      key: "IMAGES"
+      value {
+        data_type: TYPE_UINT8
+        dims: [ 4, 320, 320, 3 ]
+        random_data: true
+      }
+    }
+    count: 5
+  },
+  {
+    name: "random8"
+    batch_size: 1
+    inputs {
+      key: "IMAGES"
+      value {
+        data_type: TYPE_UINT8
+        dims: [ 8, 320, 320, 3 ]
+        random_data: true
+      }
+    }
+    count: 5
+  },
+  {
+    name: "random16"
+    batch_size: 1
+    inputs {
+      key: "IMAGES"
+      value {
+        data_type: TYPE_UINT8
+        dims: [ 16, 320, 320, 3 ]
+        random_data: true
+      }
+    }
+    count: 5
+  }
+]
 
 parameters {
   key: "EXECUTION_ENV_PATH"
-  value { string_value: "/work/gesture/src/triton/environments/mmdeploy_runtime" }
+  value { string_value: "/work/environments/mmdeploy_runtime.tar.gz" }
 }
