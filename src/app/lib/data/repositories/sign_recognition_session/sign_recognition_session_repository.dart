@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:gesture/data/repositories/bot_identity.dart';
 import 'package:gesture/data/repositories/room/room_repository.dart';
 import 'package:gesture/data/repositories/sign_recognition_session/sign_recognition_session_exception.dart';
 import 'package:gesture/utils/logging.dart';
+import 'package:gesture/utils/retry.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 class SignRecognitionSessionRepository {
@@ -11,24 +13,8 @@ class SignRecognitionSessionRepository {
   }) : _roomRepository = roomRepository;
   final RoomRepository _roomRepository;
 
-  bool hasBotJoined() {
-    final room = _roomRepository.room;
-    if (room == null) return false;
-    return room.remoteParticipants.containsKey(botIdentity);
-  }
-
-  Future<void> _waitForBotToJoin() async {
-    await _roomRepository.listener!.waitFor<ParticipantConnectedEvent>(
-      duration: const Duration(seconds: 10), 
-      filter: (event) => event.participant.identity == botIdentity,
-      onTimeout: () => throw ServerError()
-    );
-  }
-
   Future<void> startNewSession(LocalTrackPublication<LocalVideoTrack> publication) async {
-    if (!hasBotJoined()) {
-      await _waitForBotToJoin();
-    }
+    await _roomRepository.waitForBotToJoin();
     final localParticipant = _getlocalParticipantOrThrow();
     final payload = jsonEncode({'pub_sid': publication.sid});
     try {
@@ -42,11 +28,23 @@ class SignRecognitionSessionRepository {
       );
       Log.d('Start sign recognition response: $response');
     } on RpcError catch (error) {
-      throw SignRecognitionSessionException.fromRpcError(error);
+      // relying on server's signer update signal
+      final success = await retryUntilTrue(
+        action: () async {
+          final signer = await _roomRepository.signerStream.first;
+          return (signer != null && signer.identity == localParticipant.identity);
+        },
+      );
+      if (success) {
+        Log.d('Start sign recognition successfully, even though an RPC error occurred');
+      } else {
+        throw SignRecognitionSessionException.fromRpcError(error);
+      }
     }
   }
 
   Future<void> pauseCurrentSession() async {
+    await _roomRepository.waitForBotToJoin();
     final localParticipant = _getlocalParticipantOrThrow();
     try {
       final response = await localParticipant.performRpc(
@@ -59,11 +57,23 @@ class SignRecognitionSessionRepository {
       );
       Log.d('Pause sign recognition response: $response');
     } on RpcError catch (error) {
-      throw SignRecognitionSessionException.fromRpcError(error);
+      final success = await retryUntilTrue(
+        action: () async {
+          final signerState = await _roomRepository.getSignerState();
+          return (signerState?.sessionState == .PAUSED);
+        },
+      );
+
+      if (success) {
+        Log.d('Pause sign recognition successfully, even though an RPC error occurred');
+      } else {
+        throw SignRecognitionSessionException.fromRpcError(error);
+      }
     }
   }
 
   Future<void> resumeCurrentSession() async {
+    await _roomRepository.waitForBotToJoin();
     final localParticipant = _getlocalParticipantOrThrow();
     try {
       final response = await localParticipant.performRpc(
@@ -76,11 +86,23 @@ class SignRecognitionSessionRepository {
       );
       Log.d('Resume sign recognition response: $response');
     } on RpcError catch (error) {
-      throw SignRecognitionSessionException.fromRpcError(error);
+      final success = await retryUntilTrue(
+        action: () async {
+          final signerState = await _roomRepository.getSignerState();
+          return (signerState?.sessionState == .RUNNING);
+        },
+      );
+
+      if (success) {
+        Log.d('Resume sign recognition successfully, even though an RPC error occurred');
+      } else {
+        throw SignRecognitionSessionException.fromRpcError(error);
+      }
     }
   }
 
   Future<void> stopCurrentSession() async {
+    await _roomRepository.waitForBotToJoin();
     final localParticipant = _getlocalParticipantOrThrow();
     try {
       final response = await localParticipant.performRpc(
@@ -93,7 +115,18 @@ class SignRecognitionSessionRepository {
       );
       Log.d('Stop sign recognition response: $response');
     } on RpcError catch (error) {
-      throw SignRecognitionSessionException.fromRpcError(error);
+      final success = await retryUntilTrue(
+        action: () async {
+          final signerState = await _roomRepository.getSignerState();
+          return (signerState == null || signerState.sessionState == .STOPPED);
+        },
+      );
+
+      if (success) {
+        Log.d('Stop sign recognition successfully, even though an RPC error occurred');
+      } else {
+        throw SignRecognitionSessionException.fromRpcError(error);
+      }
     }
   }
 
@@ -102,6 +135,4 @@ class SignRecognitionSessionRepository {
     if (localParticipant == null) throw LocalParticipantNotPresentException();
     return localParticipant;
   }
-
-  static const botIdentity = 'sign-recognition-bot';
 }

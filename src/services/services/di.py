@@ -2,7 +2,8 @@ from .settings import LiveKitSettings, InferSettings, BotSettings
 from functools import lru_cache
 from livekit import api as lkapi
 from fastapi import Depends, Request
-from .infer import SignRecognitionBot, InferenceOrchestrator
+from .infer.orchestrator import InferenceOrchestrator
+from .infer import SignRecognitionBot
 from tritonclient.grpc.aio import InferenceServerClient
 
 

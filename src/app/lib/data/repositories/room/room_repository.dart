@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:gesture/data/repositories/bot_identity.dart';
 import 'package:gesture/data/repositories/join_token/join_token_repository.dart';
+import 'package:gesture/data/repositories/room/signer_state.dart';
+import 'package:gesture/ui/room/control/sign_recognition/sign_recognition_state.dart';
+import 'package:gesture/utils/logging.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:rxdart/subjects.dart';
 
@@ -19,6 +24,8 @@ class RoomRepository {
   Stream<Room> get roomStream => _roomSubject.stream;
   var _localParticipantSubject = BehaviorSubject<LocalParticipant>();
   Stream<LocalParticipant> get localParticipantStream => _localParticipantSubject.stream;
+  var _signerSubject = BehaviorSubject<Participant?>.seeded(null);
+  Stream<Participant?> get signerStream => _signerSubject.stream;
 
   EventsListener<RoomEvent>? _listener;
   EventsListener<RoomEvent>? get listener => _listener;
@@ -107,6 +114,11 @@ class RoomRepository {
 
     r.addListener(_broadcastRoomChange);
     r.localParticipant!.addListener(_broadcastLocalParticipantChange);
+
+    _listenToSignerChanges();
+    // final signerState = await getSignerState();
+    // final signerIdentity = signerState?.signer;
+    // _updateSigner(signerIdentity);
   }
 
   void _broadcastRoomChange() {
@@ -121,15 +133,84 @@ class RoomRepository {
     }
   }
 
+  void _listenToSignerChanges() {
+    final r = _room;
+    if (r == null) return;
+    r.registerRpcMethod('update_signer', (data) async {
+      final signerIdentity = data.payload;
+      print('update_signer request received, signer: $signerIdentity');
+      if (data.callerIdentity == botIdentity) {
+        _updateSigner(signerIdentity);
+      }
+      return 'OK';
+    });
+  }
+
+  void _updateSigner(String? signerIdentity) {
+    final r = _room;
+    if (r == null) return;
+    final Participant? signerParticipant;
+    if (r.localParticipant?.identity == signerIdentity) {
+      signerParticipant = r.localParticipant;
+    } else {
+      signerParticipant = r.remoteParticipants[signerIdentity];
+    }
+    _signerSubject.add(signerParticipant);
+  }
+
+  bool hasBotJoined() {
+    final room = _room;
+    if (room == null) return false;
+    return room.remoteParticipants.containsKey(botIdentity);
+  }
+
+  Future<void> waitForBotToJoin() async {
+    if (hasBotJoined()) return;
+    await _listener!.waitFor<ParticipantConnectedEvent>(
+      duration: const Duration(seconds: 10),
+      filter: (event) => event.participant.identity == botIdentity,
+      onTimeout: () => throw TimeoutException('Timed out while waiting for bot to join'),
+    );
+  }
+
+  Future<SignerState?> getSignerState() async {
+    await waitForBotToJoin();
+    final localParticipant = _room?.localParticipant;
+    if (localParticipant == null) return null;
+    try {
+      final response = await localParticipant.performRpc(
+        PerformRpcParams(
+          destinationIdentity: botIdentity,
+          method: 'get_signer_state',
+          payload: '',
+          responseTimeoutMs: const Duration(seconds: 10),
+        ),
+      );
+      Log.d('Get signer state: $response');
+      final Map<String, dynamic> res = jsonDecode(response);
+      if (res['signer'] != null) {
+        return SignerState(
+          signer: res['signer'],
+          sessionState: SessionState.values.byName(res['session_state']),
+        );
+      }
+      return null;
+    } on Exception {
+      return null;
+    }
+  }
+
   Future<void> dispose() async {
     _room?.localParticipant?.removeListener(_broadcastLocalParticipantChange);
     _room?.removeListener(_broadcastRoomChange);
+    await _signerSubject.close();
     await _localParticipantSubject.close();
     await _roomSubject.close();
     await _listener?.dispose();
     await _room?.dispose();
     _listener = null;
     _room = null;
+    _signerSubject = BehaviorSubject.seeded(null);
     _localParticipantSubject = BehaviorSubject();
     _roomSubject = BehaviorSubject();
   }

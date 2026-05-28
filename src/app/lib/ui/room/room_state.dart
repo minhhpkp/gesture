@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:gesture/ui/room/participant/participant_track.dart';
+import 'package:livekit_client/livekit_client.dart';
 
 part 'room_state.freezed.dart';
 
@@ -15,5 +16,6 @@ abstract class RoomState with _$RoomState {
     bool? activeRecording,
     @Default(false) bool hasLocalParticipant,
     @Default(false) bool isLoading,
+    Participant? signer,
   }) = _RoomState;
 }

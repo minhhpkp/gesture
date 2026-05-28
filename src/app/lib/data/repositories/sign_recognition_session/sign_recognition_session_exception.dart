@@ -1,3 +1,4 @@
+import 'package:gesture/utils/logging.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 // Convenient for development, will change to result pattern in the future
@@ -17,6 +18,7 @@ sealed class SignRecognitionSessionException implements Exception {
         return UnauthorizedSessionStopException();
     }
     if (ServerError.codes.contains(error.code)) {
+      Log.d('Server Error code: ${error.code}');
       return ServerError();
     }
     return UnknownRpcException(error);

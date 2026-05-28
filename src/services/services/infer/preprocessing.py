@@ -32,6 +32,13 @@ def preprocess_for_detection(
     return cv2.resize(frame, input_size)
 
 
+# The code below is adapted from MMPose's example:
+# https://github.com/open-mmlab/mmpose/blob/main/projects/rtmpose/examples/onnxruntime/main.py
+#
+# Copyright (c) OpenMMLab. All rights reserved.
+# Licensed under the Apache License, Version 2.0.
+#
+# Modifications were made to fit this project.
 def preprocess_for_cslr(
         frame: npt.NDArray[np.uint8],
         bbox: npt.NDArray[np.float32],

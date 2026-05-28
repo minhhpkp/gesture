@@ -1,5 +1,8 @@
-# Adapted from OpenMMLab's keypoints_from_heatmap.cpp
+# Adapted (using AI) from MMDeploy's keypoints_from_heatmap.cpp:
+# https://github.com/open-mmlab/mmdeploy/blob/main/csrc/mmdeploy/codebase/mmpose/keypoints_from_heatmap.cpp
+#
 # Original: Copyright (c) OpenMMLab. All rights reserved.
+# Licensed under the Apache License, Version 2.0.
 #
 # Batched version: all operations run over (N, K, H, W) inputs.
 # Per-keypoint loops are replaced with vectorised numpy operations;

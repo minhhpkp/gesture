@@ -10,7 +10,8 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:livekit_client/livekit_client.dart';
 
 class RoomViewModel extends Notifier<RoomState> {
-  late final Room _room;
+  late Room _room;
+  // need this to prevent state from being accessed before it's initialised
   var isBuilding = true;
 
   @override
@@ -21,8 +22,99 @@ class RoomViewModel extends Notifier<RoomState> {
 
     var initialState = RoomState(participantTracks: [], glosses: Queue());
 
+    isBuilding = true;
+
+    List<ParticipantTrack> sortParticipants([Participant? signer]) {
+      signer ??= isBuilding ? initialState.signer : state.signer;
+      final userMediaTracks = <ParticipantTrack>[];
+      final screenTracks = <ParticipantTrack>[];
+      final signerTracks = <ParticipantTrack>[];
+      if (signer != null) {
+        for (var t in signer.videoTrackPublications) {
+          if (t.isScreenShare) {
+            signerTracks.add(
+              ParticipantTrack(
+                participant: signer,
+                type: ParticipantTrackType.screenShare,
+              ),
+            );
+          } else {
+            signerTracks.add(ParticipantTrack(participant: signer));
+          }
+        }
+        // screenshare tracks first
+        signerTracks.sort((a, b) {
+          if (a.type == b.type) return 0;
+          if (a.type == .screenShare) return -1;
+          return 1;
+        });
+      }
+      for (var participant in _room.remoteParticipants.values) {
+        if (participant.identity == signer?.identity) {
+          continue;
+        }
+        for (var t in participant.videoTrackPublications) {
+          if (t.isScreenShare) {
+            screenTracks.add(
+              ParticipantTrack(
+                participant: participant,
+                type: ParticipantTrackType.screenShare,
+              ),
+            );
+          } else {
+            userMediaTracks.add(ParticipantTrack(participant: participant));
+          }
+        }
+      }
+      // sort speakers for the grid
+      userMediaTracks.sort((a, b) {
+        // loudest speaker first
+        if (a.participant.isSpeaking && b.participant.isSpeaking) {
+          if (a.participant.audioLevel > b.participant.audioLevel) {
+            return -1;
+          } else {
+            return 1;
+          }
+        }
+
+        // last spoken at
+        final aSpokeAt = a.participant.lastSpokeAt?.millisecondsSinceEpoch ?? 0;
+        final bSpokeAt = b.participant.lastSpokeAt?.millisecondsSinceEpoch ?? 0;
+
+        if (aSpokeAt != bSpokeAt) {
+          return aSpokeAt > bSpokeAt ? -1 : 1;
+        }
+
+        // video on
+        if (a.participant.hasVideo != b.participant.hasVideo) {
+          return a.participant.hasVideo ? -1 : 1;
+        }
+
+        // joinedAt
+        return a.participant.joinedAt.millisecondsSinceEpoch - b.participant.joinedAt.millisecondsSinceEpoch;
+      });
+
+      final localParticipant = _room.localParticipant;
+      if (localParticipant != null && localParticipant.identity != signer?.identity) {
+        for (var t in localParticipant.videoTrackPublications) {
+          if (t.isScreenShare) {
+            screenTracks.add(
+              ParticipantTrack(
+                participant: localParticipant,
+                type: ParticipantTrackType.screenShare,
+              ),
+            );
+          } else {
+            userMediaTracks.add(ParticipantTrack(participant: localParticipant));
+          }
+        }
+      }
+
+      return [...signerTracks, ...screenTracks, ...userMediaTracks];
+    }
+
     void handleRoomChange() {
-      final participants = _sortParticipants();
+      final participants = sortParticipants();
       if (isBuilding) {
         initialState = initialState.copyWith(
           participantTracks: participants,
@@ -40,7 +132,7 @@ class RoomViewModel extends Notifier<RoomState> {
     ref.onDispose(() => _room.removeListener(handleRoomChange));
 
     void sortAndSetParticipants() {
-      final participants = _sortParticipants();
+      final participants = sortParticipants();
       if (isBuilding) {
         initialState = initialState.copyWith(participantTracks: participants);
       } else {
@@ -133,73 +225,44 @@ class RoomViewModel extends Notifier<RoomState> {
       ref.onDispose(() => unawaited(subscription.cancel()));
     });
 
+    // _room.registerTextStreamHandler('signer_update', (reader, senderIdentity) {
+    //   print('stream sent by $senderIdentity');
+    //   final subscription = reader.listen((chunk) {
+    //     try {
+    //       final signerIdentity = utf8.decode(chunk.content);
+    //       final Participant? signerParticipant;
+    //       if (_room.localParticipant?.identity == signerIdentity) {
+    //         signerParticipant = _room.localParticipant;
+    //       } else {
+    //         signerParticipant = _room.remoteParticipants[signerIdentity];
+    //       }
+    //       sortAndSetParticipants(signerParticipant);
+    //     } catch (err) {
+    //       print('Failed to decode: $err');
+    //     }
+    //   });
+    //   ref.onDispose(() => unawaited(subscription.cancel()));
+    // });
+
+    final subscription = roomRepository.signerStream.listen((signer) {
+      final participants = sortParticipants(signer);
+      if (isBuilding) {
+        initialState = initialState.copyWith(
+          signer: signer,
+          participantTracks: participants,
+        );
+      } else {
+        state = state.copyWith(
+          signer: signer,
+          participantTracks: participants,
+        );
+      }
+    });
+    ref.onDispose(() => subscription.cancel());
+
     isBuilding = false;
 
     return initialState;
-  }
-
-  List<ParticipantTrack> _sortParticipants() {
-    final userMediaTracks = <ParticipantTrack>[];
-    final screenTracks = <ParticipantTrack>[];
-    for (var participant in _room.remoteParticipants.values) {
-      for (var t in participant.videoTrackPublications) {
-        if (t.isScreenShare) {
-          screenTracks.add(
-            ParticipantTrack(
-              participant: participant,
-              type: ParticipantTrackType.screenShare,
-            ),
-          );
-        } else {
-          userMediaTracks.add(ParticipantTrack(participant: participant));
-        }
-      }
-    }
-    // sort speakers for the grid
-    userMediaTracks.sort((a, b) {
-      // loudest speaker first
-      if (a.participant.isSpeaking && b.participant.isSpeaking) {
-        if (a.participant.audioLevel > b.participant.audioLevel) {
-          return -1;
-        } else {
-          return 1;
-        }
-      }
-
-      // last spoken at
-      final aSpokeAt = a.participant.lastSpokeAt?.millisecondsSinceEpoch ?? 0;
-      final bSpokeAt = b.participant.lastSpokeAt?.millisecondsSinceEpoch ?? 0;
-
-      if (aSpokeAt != bSpokeAt) {
-        return aSpokeAt > bSpokeAt ? -1 : 1;
-      }
-
-      // video on
-      if (a.participant.hasVideo != b.participant.hasVideo) {
-        return a.participant.hasVideo ? -1 : 1;
-      }
-
-      // joinedAt
-      return a.participant.joinedAt.millisecondsSinceEpoch - b.participant.joinedAt.millisecondsSinceEpoch;
-    });
-
-    final localParticipantTracks = _room.localParticipant?.videoTrackPublications;
-    if (localParticipantTracks != null) {
-      for (var t in localParticipantTracks) {
-        if (t.isScreenShare) {
-          screenTracks.add(
-            ParticipantTrack(
-              participant: _room.localParticipant!,
-              type: ParticipantTrackType.screenShare,
-            ),
-          );
-        } else {
-          userMediaTracks.add(ParticipantTrack(participant: _room.localParticipant!));
-        }
-      }
-    }
-
-    return [...screenTracks, ...userMediaTracks];
   }
 
   Future<void> manuallyPlayAudio() async {

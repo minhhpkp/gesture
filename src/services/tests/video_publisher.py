@@ -33,7 +33,7 @@ def probe_video(path: str) -> tuple[int, int, float]:
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 0
     fps = float(cap.get(cv2.CAP_PROP_FPS)) or 0.0
 
-    # Some containers report 0; fallback later if needed.
+    # Some video formats or containers report 0; fallback later if needed.
     cap.release()
     if width <= 0 or height <= 0:
         raise RuntimeError("Could not determine video width/height from the file.")
@@ -77,8 +77,8 @@ async def stream_video_file(
         if bgr.shape[1] != out_width or bgr.shape[0] != out_height:
             bgr = cv2.resize(bgr, (out_width, out_height), interpolation=cv2.INTER_AREA)
 
-        rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-        buf = rgba.tobytes()  # width * height * 4 bytes
+        rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+        buf = rgb.tobytes()  # width * height * 24 bytes
 
         frame = rtc.VideoFrame(out_width, out_height, rtc.VideoBufferType.RGB24, buf)
 
@@ -169,7 +169,7 @@ async def main(room: rtc.Room, loop: asyncio.AbstractEventLoop, args: argparse.N
     publication = await room.local_participant.publish_track(track, options)
     logger.info("Published track sid=%s name=%s", publication.sid, track.name)
 
-    # Keep pushing frames continuously (important even for “static” content)
+    # Keep pushing frames continuously
     await stream_video_file(
             source=source,
             path=args.file,

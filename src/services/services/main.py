@@ -4,7 +4,8 @@ from livekit import api as lkapi
 from livekit import rtc as lkrtc
 from contextlib import asynccontextmanager
 from .utils.logging import setup_logging, get_logger
-from .infer import InferenceOrchestrator, SignRecognitionBot
+from .infer.orchestrator import TritonInferenceOrchestrator, InferenceOrchestrator
+from .infer import SignRecognitionBot
 from tritonclient.grpc.aio import InferenceServerClient
 import asyncio
 from .settings import BotSettings, LiveKitSettings
@@ -25,7 +26,7 @@ async def lifespan(app: FastAPI):
     app.state.vocab = vocab
     
     infer_settings = di.get_infer_settings()
-    app.state.infer_orchestrator = InferenceOrchestrator(
+    app.state.infer_orchestrator = TritonInferenceOrchestrator(
         client=InferenceServerClient(infer_settings.server_url),
         infer_settings=infer_settings
     )

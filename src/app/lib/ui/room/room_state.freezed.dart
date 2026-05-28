@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$RoomState {
 
- List<ParticipantTrack> get participantTracks; Queue<String> get glosses; bool get unableToPlaybackAudio; bool get roomDisconnected; bool? get activeRecording; bool get hasLocalParticipant; bool get isLoading;
+ List<ParticipantTrack> get participantTracks; Queue<String> get glosses; bool get unableToPlaybackAudio; bool get roomDisconnected; bool? get activeRecording; bool get hasLocalParticipant; bool get isLoading; Participant? get signer;
 /// Create a copy of RoomState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $RoomStateCopyWith<RoomState> get copyWith => _$RoomStateCopyWithImpl<RoomState>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is RoomState&&const DeepCollectionEquality().equals(other.participantTracks, participantTracks)&&const DeepCollectionEquality().equals(other.glosses, glosses)&&(identical(other.unableToPlaybackAudio, unableToPlaybackAudio) || other.unableToPlaybackAudio == unableToPlaybackAudio)&&(identical(other.roomDisconnected, roomDisconnected) || other.roomDisconnected == roomDisconnected)&&(identical(other.activeRecording, activeRecording) || other.activeRecording == activeRecording)&&(identical(other.hasLocalParticipant, hasLocalParticipant) || other.hasLocalParticipant == hasLocalParticipant)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RoomState&&const DeepCollectionEquality().equals(other.participantTracks, participantTracks)&&const DeepCollectionEquality().equals(other.glosses, glosses)&&(identical(other.unableToPlaybackAudio, unableToPlaybackAudio) || other.unableToPlaybackAudio == unableToPlaybackAudio)&&(identical(other.roomDisconnected, roomDisconnected) || other.roomDisconnected == roomDisconnected)&&(identical(other.activeRecording, activeRecording) || other.activeRecording == activeRecording)&&(identical(other.hasLocalParticipant, hasLocalParticipant) || other.hasLocalParticipant == hasLocalParticipant)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.signer, signer) || other.signer == signer));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(participantTracks),const DeepCollectionEquality().hash(glosses),unableToPlaybackAudio,roomDisconnected,activeRecording,hasLocalParticipant,isLoading);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(participantTracks),const DeepCollectionEquality().hash(glosses),unableToPlaybackAudio,roomDisconnected,activeRecording,hasLocalParticipant,isLoading,signer);
 
 @override
 String toString() {
-  return 'RoomState(participantTracks: $participantTracks, glosses: $glosses, unableToPlaybackAudio: $unableToPlaybackAudio, roomDisconnected: $roomDisconnected, activeRecording: $activeRecording, hasLocalParticipant: $hasLocalParticipant, isLoading: $isLoading)';
+  return 'RoomState(participantTracks: $participantTracks, glosses: $glosses, unableToPlaybackAudio: $unableToPlaybackAudio, roomDisconnected: $roomDisconnected, activeRecording: $activeRecording, hasLocalParticipant: $hasLocalParticipant, isLoading: $isLoading, signer: $signer)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $RoomStateCopyWith<$Res>  {
   factory $RoomStateCopyWith(RoomState value, $Res Function(RoomState) _then) = _$RoomStateCopyWithImpl;
 @useResult
 $Res call({
- List<ParticipantTrack> participantTracks, Queue<String> glosses, bool unableToPlaybackAudio, bool roomDisconnected, bool? activeRecording, bool hasLocalParticipant, bool isLoading
+ List<ParticipantTrack> participantTracks, Queue<String> glosses, bool unableToPlaybackAudio, bool roomDisconnected, bool? activeRecording, bool hasLocalParticipant, bool isLoading, Participant? signer
 });
 
 
@@ -62,7 +62,7 @@ class _$RoomStateCopyWithImpl<$Res>
 
 /// Create a copy of RoomState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? participantTracks = null,Object? glosses = null,Object? unableToPlaybackAudio = null,Object? roomDisconnected = null,Object? activeRecording = freezed,Object? hasLocalParticipant = null,Object? isLoading = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? participantTracks = null,Object? glosses = null,Object? unableToPlaybackAudio = null,Object? roomDisconnected = null,Object? activeRecording = freezed,Object? hasLocalParticipant = null,Object? isLoading = null,Object? signer = freezed,}) {
   return _then(_self.copyWith(
 participantTracks: null == participantTracks ? _self.participantTracks : participantTracks // ignore: cast_nullable_to_non_nullable
 as List<ParticipantTrack>,glosses: null == glosses ? _self.glosses : glosses // ignore: cast_nullable_to_non_nullable
@@ -71,7 +71,8 @@ as bool,roomDisconnected: null == roomDisconnected ? _self.roomDisconnected : ro
 as bool,activeRecording: freezed == activeRecording ? _self.activeRecording : activeRecording // ignore: cast_nullable_to_non_nullable
 as bool?,hasLocalParticipant: null == hasLocalParticipant ? _self.hasLocalParticipant : hasLocalParticipant // ignore: cast_nullable_to_non_nullable
 as bool,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,signer: freezed == signer ? _self.signer : signer // ignore: cast_nullable_to_non_nullable
+as Participant?,
   ));
 }
 
@@ -156,10 +157,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading,  Participant? signer)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _RoomState() when $default != null:
-return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading);case _:
+return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading,_that.signer);case _:
   return orElse();
 
 }
@@ -177,10 +178,10 @@ return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudi
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading,  Participant? signer)  $default,) {final _that = this;
 switch (_that) {
 case _RoomState():
-return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading);case _:
+return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading,_that.signer);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -197,10 +198,10 @@ return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudi
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ParticipantTrack> participantTracks,  Queue<String> glosses,  bool unableToPlaybackAudio,  bool roomDisconnected,  bool? activeRecording,  bool hasLocalParticipant,  bool isLoading,  Participant? signer)?  $default,) {final _that = this;
 switch (_that) {
 case _RoomState() when $default != null:
-return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading);case _:
+return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudio,_that.roomDisconnected,_that.activeRecording,_that.hasLocalParticipant,_that.isLoading,_that.signer);case _:
   return null;
 
 }
@@ -212,7 +213,7 @@ return $default(_that.participantTracks,_that.glosses,_that.unableToPlaybackAudi
 
 
 class _RoomState implements RoomState {
-  const _RoomState({required final  List<ParticipantTrack> participantTracks, required this.glosses, this.unableToPlaybackAudio = false, this.roomDisconnected = false, this.activeRecording, this.hasLocalParticipant = false, this.isLoading = false}): _participantTracks = participantTracks;
+  const _RoomState({required final  List<ParticipantTrack> participantTracks, required this.glosses, this.unableToPlaybackAudio = false, this.roomDisconnected = false, this.activeRecording, this.hasLocalParticipant = false, this.isLoading = false, this.signer}): _participantTracks = participantTracks;
   
 
  final  List<ParticipantTrack> _participantTracks;
@@ -228,6 +229,7 @@ class _RoomState implements RoomState {
 @override final  bool? activeRecording;
 @override@JsonKey() final  bool hasLocalParticipant;
 @override@JsonKey() final  bool isLoading;
+@override final  Participant? signer;
 
 /// Create a copy of RoomState
 /// with the given fields replaced by the non-null parameter values.
@@ -239,16 +241,16 @@ _$RoomStateCopyWith<_RoomState> get copyWith => __$RoomStateCopyWithImpl<_RoomSt
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _RoomState&&const DeepCollectionEquality().equals(other._participantTracks, _participantTracks)&&const DeepCollectionEquality().equals(other.glosses, glosses)&&(identical(other.unableToPlaybackAudio, unableToPlaybackAudio) || other.unableToPlaybackAudio == unableToPlaybackAudio)&&(identical(other.roomDisconnected, roomDisconnected) || other.roomDisconnected == roomDisconnected)&&(identical(other.activeRecording, activeRecording) || other.activeRecording == activeRecording)&&(identical(other.hasLocalParticipant, hasLocalParticipant) || other.hasLocalParticipant == hasLocalParticipant)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _RoomState&&const DeepCollectionEquality().equals(other._participantTracks, _participantTracks)&&const DeepCollectionEquality().equals(other.glosses, glosses)&&(identical(other.unableToPlaybackAudio, unableToPlaybackAudio) || other.unableToPlaybackAudio == unableToPlaybackAudio)&&(identical(other.roomDisconnected, roomDisconnected) || other.roomDisconnected == roomDisconnected)&&(identical(other.activeRecording, activeRecording) || other.activeRecording == activeRecording)&&(identical(other.hasLocalParticipant, hasLocalParticipant) || other.hasLocalParticipant == hasLocalParticipant)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.signer, signer) || other.signer == signer));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_participantTracks),const DeepCollectionEquality().hash(glosses),unableToPlaybackAudio,roomDisconnected,activeRecording,hasLocalParticipant,isLoading);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_participantTracks),const DeepCollectionEquality().hash(glosses),unableToPlaybackAudio,roomDisconnected,activeRecording,hasLocalParticipant,isLoading,signer);
 
 @override
 String toString() {
-  return 'RoomState(participantTracks: $participantTracks, glosses: $glosses, unableToPlaybackAudio: $unableToPlaybackAudio, roomDisconnected: $roomDisconnected, activeRecording: $activeRecording, hasLocalParticipant: $hasLocalParticipant, isLoading: $isLoading)';
+  return 'RoomState(participantTracks: $participantTracks, glosses: $glosses, unableToPlaybackAudio: $unableToPlaybackAudio, roomDisconnected: $roomDisconnected, activeRecording: $activeRecording, hasLocalParticipant: $hasLocalParticipant, isLoading: $isLoading, signer: $signer)';
 }
 
 
@@ -259,7 +261,7 @@ abstract mixin class _$RoomStateCopyWith<$Res> implements $RoomStateCopyWith<$Re
   factory _$RoomStateCopyWith(_RoomState value, $Res Function(_RoomState) _then) = __$RoomStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<ParticipantTrack> participantTracks, Queue<String> glosses, bool unableToPlaybackAudio, bool roomDisconnected, bool? activeRecording, bool hasLocalParticipant, bool isLoading
+ List<ParticipantTrack> participantTracks, Queue<String> glosses, bool unableToPlaybackAudio, bool roomDisconnected, bool? activeRecording, bool hasLocalParticipant, bool isLoading, Participant? signer
 });
 
 
@@ -276,7 +278,7 @@ class __$RoomStateCopyWithImpl<$Res>
 
 /// Create a copy of RoomState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? participantTracks = null,Object? glosses = null,Object? unableToPlaybackAudio = null,Object? roomDisconnected = null,Object? activeRecording = freezed,Object? hasLocalParticipant = null,Object? isLoading = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? participantTracks = null,Object? glosses = null,Object? unableToPlaybackAudio = null,Object? roomDisconnected = null,Object? activeRecording = freezed,Object? hasLocalParticipant = null,Object? isLoading = null,Object? signer = freezed,}) {
   return _then(_RoomState(
 participantTracks: null == participantTracks ? _self._participantTracks : participantTracks // ignore: cast_nullable_to_non_nullable
 as List<ParticipantTrack>,glosses: null == glosses ? _self.glosses : glosses // ignore: cast_nullable_to_non_nullable
@@ -285,7 +287,8 @@ as bool,roomDisconnected: null == roomDisconnected ? _self.roomDisconnected : ro
 as bool,activeRecording: freezed == activeRecording ? _self.activeRecording : activeRecording // ignore: cast_nullable_to_non_nullable
 as bool?,hasLocalParticipant: null == hasLocalParticipant ? _self.hasLocalParticipant : hasLocalParticipant // ignore: cast_nullable_to_non_nullable
 as bool,isLoading: null == isLoading ? _self.isLoading : isLoading // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,signer: freezed == signer ? _self.signer : signer // ignore: cast_nullable_to_non_nullable
+as Participant?,
   ));
 }
 

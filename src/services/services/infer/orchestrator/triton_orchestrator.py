@@ -1,27 +1,27 @@
 import asyncio
 import numpy as np
-from .buffer import BatchBuffer
+from ..buffer import BatchBuffer
 from collections.abc import AsyncIterator
-from .preprocessing import (
+from ..preprocessing import (
     preprocess_for_detection,
     preprocess_for_pose,
     preprocess_for_cslr,
     get_used_kp_indices
 )
-from .postprocessing import filter_bboxes, majority_vote, max_avg_prob_vote
-from .keypoints_from_heatmaps import TopdownHeatmapBaseHeadDecode
+from ..postprocessing import filter_bboxes, majority_vote, max_avg_prob_vote
+from ..keypoints_from_heatmaps import TopdownHeatmapBaseHeadDecode
 import tritonclient.grpc.aio as grpcclient
 from collections import deque
 import time
 from livekit import rtc
 from services.settings import InferSettings, VotingStrategy
 from services.utils.logging import get_logger
-
+from .orchestrator import InferenceOrchestrator, ResultIterator
 
 logger = get_logger(__name__)
 
 
-class InferenceOrchestrator:
+class TritonInferenceOrchestrator(InferenceOrchestrator):
     def __init__(
         self,
         client: grpcclient.InferenceServerClient,
@@ -87,7 +87,7 @@ class InferenceOrchestrator:
             )
         )
 
-        class _ResultIterator:
+        class _ResultIterator(ResultIterator):
             def __aiter__(self):
                 return self
             
@@ -442,7 +442,7 @@ class InferenceOrchestrator:
                         gloss_id = gls_indices[start]
                     else:
                         gloss_id = majority_vote(
-                            gls_indices[start:start+self.cslr_cfg.voting_bag_size],
+                            gls_indices[start:start+self._cslr_cfg.voting_bag_size],
                             self._cslr_cfg.blank_id
                         )
                     await handle_voting_result(gloss_id)

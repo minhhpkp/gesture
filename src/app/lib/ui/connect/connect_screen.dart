@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:gesture/di/providers.dart';
@@ -74,56 +75,80 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
         }
       }
     });
-
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(title: const Text('Gesture')),
-          body: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  TextFormField(
-                    decoration: const InputDecoration(hintText: 'Username'),
-                    validator: (String? value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
-                      }
-                      return null;
-                    },
-                    controller: _usernameController,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth > 600.0 ? 600.0 : null;
+        return Stack(
+          children: [
+            Scaffold(
+              appBar: AppBar(
+                title: Image.asset(
+                  'assets/images/logo_title.png',
+                  height: 40, // constrain height to fit the AppBar
+                  fit: BoxFit.contain,
+                ),
+                centerTitle: true,
+              ),
+              body: Center(
+                child: Container(
+                  width: maxWidth,
+                  padding: const EdgeInsets.all(16),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Connect to your room',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            SizedBox(height: 28),
+                            TextFormField(
+                              decoration: const InputDecoration(hintText: 'Username'),
+                              validator: (String? value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your username';
+                                }
+                                return null;
+                              },
+                              controller: _usernameController,
+                            ),
+                            SizedBox(height: 24),
+                            TextFormField(
+                              decoration: const InputDecoration(hintText: 'Room'),
+                              validator: (String? value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter the ID of the room you would like to join';
+                                }
+                                return null;
+                              },
+                              controller: _roomIdController,
+                            ),
+                            SizedBox(height: 24),
+                            ElevatedButton(
+                              onPressed: state?.isLoading == true ? null : _connect,
+                              child: const Text('Connect'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  SizedBox(height: 24),
-                  TextFormField(
-                    decoration: const InputDecoration(hintText: 'Room'),
-                    validator: (String? value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter the ID of the room you would like to join';
-                      }
-                      return null;
-                    },
-                    controller: _roomIdController,
-                  ),
-                  SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: state?.isLoading == true ? null : _connect,
-                    child: const Text('Connect'),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-        if (state?.isLoading == true)
-          Container(
-            color: Colors.black54,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-      ],
+            if (state?.isLoading == true)
+              Container(
+                color: Colors.black54,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+          ],
+        );
+      },
     );
   }
 }

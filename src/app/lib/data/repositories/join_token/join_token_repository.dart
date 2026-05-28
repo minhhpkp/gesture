@@ -17,6 +17,6 @@ class JoinTokenRepository {
       cancelToken: cancelToken,
     );
     _joinToken = response.token;
-    print('join token: $_joinToken');
+    // print('join token: $_joinToken');
   }
 }

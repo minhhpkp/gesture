@@ -7,6 +7,7 @@ from services.utils.logging import get_logger
 logger = get_logger(__name__)
 
 class SessionState(Enum):
+    WAITING = auto() # waiting for the signer to publish their video
     RUNNING = auto()
     PAUSED = auto()
     STOPPED = auto()
@@ -15,29 +16,30 @@ class InferenceSession:
     def __init__(self, orchestrator: InferenceOrchestrator):
         self._orchestrator = orchestrator
 
-        self.state = SessionState.RUNNING
+        self.state = SessionState.WAITING
         self.cond = asyncio.Condition()
 
         self._video_stream = None
         self._result_iterator = None
 
     async def stream_infer(self, video_stream: rtc.VideoStream):
+        self.state = SessionState.RUNNING
         self._video_stream = video_stream
         self._result_iterator = self._orchestrator.stream_infer(self._stream_frame())
         async for result in self._result_iterator:
             yield result
 
     async def _stream_frame(self):
-        idx = -1
+        # idx = -1
         async for event in self._video_stream:
-            idx += 1
-            logger.info("event %d received", idx)
+            # idx += 1
+            # logger.info("event %d received", idx)
             async with self.cond:
                 await self.cond.wait_for(lambda: self.state != SessionState.PAUSED)
                 if self.state == SessionState.STOPPED:
                     break
                 # state must now be "RUNNING"
-                logger.info("sending event %d", idx)
+                # logger.info("sending event %d", idx)
                 yield event
     
     async def pause(self):

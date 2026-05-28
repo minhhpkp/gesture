@@ -23,7 +23,7 @@ class OutlinedIconButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        side: const BorderSide(color: Colors.blue, width: 1.5),
+        side: BorderSide(color: Theme.of(context).colorScheme.outline, width: 1.5),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       ),
     );

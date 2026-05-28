@@ -126,77 +126,122 @@ class ControlBar extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       child: state != null
-          ? Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 5,
-              runSpacing: 5,
-              children: [
-                if (signRecognitionState.isLoading)
-                  CircularProgressIndicator()
-                else
-                  ...switch (signRecognitionState.sessionState) {
-                    SessionState.STOPPED => [
-                      OutlinedIconButton(
-                        onPressed: handleStartSignRecognitionClick,
-                        label: const Text('Start sign recognition'),
-                        icon: const Icon(Icons.person),
-                      ),
-                    ],
-                    SessionState.RUNNING => [
-                      OutlinedIconButton(
-                        onPressed: signRecognitionVm.pauseSignRecognition,
-                        label: const Text('Pause sign recognition'),
-                        icon: const Icon(Icons.pause),
-                      ),
-                      OutlinedIconButton(
-                        onPressed: signRecognitionVm.stopSignRecognition,
-                        label: const Text('Stop sign recognition'),
-                        icon: const Icon(Icons.stop),
-                      ),
-                    ],
-                    SessionState.PAUSED => [
-                      OutlinedIconButton(
-                        onPressed: signRecognitionVm.resumeSignRecognition,
-                        label: const Text('Resume sign recognition'),
-                        icon: const Icon(Icons.play_arrow),
-                      ),
-                      OutlinedIconButton(
-                        onPressed: signRecognitionVm.stopSignRecognition,
-                        label: const Text('Stop sign recognition'),
-                        icon: const Icon(Icons.stop),
-                      ),
-                    ],
-                  },
-                if (state.isMicrophoneEnabled)
-                  if (lkPlatformIs(PlatformType.android))
-                    IconButton(
-                      onPressed: controlVm.disableAudio,
-                      icon: const Icon(Icons.mic),
-                      tooltip: 'mute audio',
-                    )
+          ? Container(
+              color: Theme.of(context).cardColor,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 5,
+                runSpacing: 5,
+                children: [
+                  if (signRecognitionState.isLoading)
+                    CircularProgressIndicator()
                   else
+                    ...switch (signRecognitionState.sessionState) {
+                      SessionState.STOPPED => [
+                        OutlinedIconButton(
+                          onPressed: handleStartSignRecognitionClick,
+                          label: const Text('Start sign recognition'),
+                          icon: const Icon(Icons.person),
+                        ),
+                      ],
+                      SessionState.RUNNING => [
+                        OutlinedIconButton(
+                          onPressed: signRecognitionVm.pauseSignRecognition,
+                          label: const Text('Pause sign recognition'),
+                          icon: const Icon(Icons.pause),
+                        ),
+                        OutlinedIconButton(
+                          onPressed: signRecognitionVm.stopSignRecognition,
+                          label: const Text('Stop sign recognition'),
+                          icon: const Icon(Icons.stop),
+                        ),
+                      ],
+                      SessionState.PAUSED => [
+                        OutlinedIconButton(
+                          onPressed: signRecognitionVm.resumeSignRecognition,
+                          label: const Text('Resume sign recognition'),
+                          icon: const Icon(Icons.play_arrow),
+                        ),
+                        OutlinedIconButton(
+                          onPressed: signRecognitionVm.stopSignRecognition,
+                          label: const Text('Stop sign recognition'),
+                          icon: const Icon(Icons.stop),
+                        ),
+                      ],
+                    },
+                  if (state.isMicrophoneEnabled)
+                    if (lkPlatformIs(PlatformType.android))
+                      IconButton(
+                        onPressed: controlVm.disableAudio,
+                        icon: const Icon(Icons.mic),
+                        tooltip: 'mute audio',
+                      )
+                    else
+                      PopupMenuButton<MediaDevice>(
+                        icon: const Icon(Icons.settings_voice),
+                        offset: const Offset(0, -90),
+                        itemBuilder: (BuildContext context) {
+                          return [
+                            PopupMenuItem<MediaDevice>(
+                              value: null,
+                              onTap: state.isMuted ? controlVm.enableAudio : controlVm.disableAudio,
+                              child: const ListTile(
+                                leading: Icon(
+                                  Icons.mic_off,
+                                  color: Colors.white,
+                                ),
+                                title: Text('Mute Microphone'),
+                              ),
+                            ),
+                            if (state.audioInputs.isNotEmpty)
+                              ...state.audioInputs.map((device) {
+                                return PopupMenuItem<MediaDevice>(
+                                  value: device,
+                                  child: ListTile(
+                                    leading: (device.deviceId == state.selectedAudioInputDeviceId)
+                                        ? const Icon(
+                                            Icons.check_box_outlined,
+                                            color: Colors.white,
+                                          )
+                                        : const Icon(
+                                            Icons.check_box_outline_blank,
+                                            color: Colors.white,
+                                          ),
+                                    title: Text(device.label),
+                                  ),
+                                  onTap: () => controlVm.selectAudioInput(device),
+                                );
+                              }),
+                          ];
+                        },
+                      )
+                  else
+                    IconButton(
+                      onPressed: controlVm.enableAudio,
+                      icon: const Icon(Icons.mic_off),
+                      tooltip: 'un-mute audio',
+                    ),
+                  if (!lkPlatformIsMobile())
                     PopupMenuButton<MediaDevice>(
-                      icon: const Icon(Icons.settings_voice),
-                      offset: const Offset(0, -90),
+                      icon: const Icon(Icons.volume_up),
                       itemBuilder: (BuildContext context) {
                         return [
-                          PopupMenuItem<MediaDevice>(
+                          const PopupMenuItem<MediaDevice>(
                             value: null,
-                            onTap: state.isMuted ? controlVm.enableAudio : controlVm.disableAudio,
-                            child: const ListTile(
+                            child: ListTile(
                               leading: Icon(
-                                Icons.mic_off,
+                                Icons.speaker,
                                 color: Colors.white,
                               ),
-                              title: Text('Mute Microphone'),
+                              title: Text('Select Audio Output'),
                             ),
                           ),
-                          if (state.audioInputs.isNotEmpty)
-                            ...state.audioInputs.map((device) {
+                          if (state.audioOutputs.isNotEmpty)
+                            ...state.audioOutputs.map((device) {
                               return PopupMenuItem<MediaDevice>(
                                 value: device,
                                 child: ListTile(
-                                  leading: (device.deviceId == state.selectedAudioInputDeviceId)
+                                  leading: (device.deviceId == state.selectedAudioOutputDeviceId)
                                       ? const Icon(
                                           Icons.check_box_outlined,
                                           color: Colors.white,
@@ -207,131 +252,89 @@ class ControlBar extends ConsumerWidget {
                                         ),
                                   title: Text(device.label),
                                 ),
-                                onTap: () => controlVm.selectAudioInput(device),
+                                onTap: () => controlVm.selectAudioOutput(device),
+                              );
+                            }),
+                        ];
+                      },
+                    ),
+                  if (!kIsWeb && lkPlatformIsMobile())
+                    IconButton(
+                      disabledColor: Colors.grey,
+                      onPressed: controlVm.setSpeakerphoneOn,
+                      icon: Icon(state.isSpeakerphoneOn ? Icons.speaker_phone : Icons.phone_android),
+                      tooltip: 'Switch SpeakerPhone',
+                    ),
+                  if (state.isCameraEnabled)
+                    PopupMenuButton<MediaDevice>(
+                      icon: const Icon(Icons.videocam_sharp),
+                      itemBuilder: (BuildContext context) {
+                        return [
+                          PopupMenuItem<MediaDevice>(
+                            value: null,
+                            onTap: controlVm.disableVideo,
+                            child: const ListTile(
+                              leading: Icon(
+                                Icons.videocam_off,
+                                color: Colors.white,
+                              ),
+                              title: Text('Disable Camera'),
+                            ),
+                          ),
+                          if (state.videoInputs.isNotEmpty)
+                            ...state.videoInputs.map((device) {
+                              return PopupMenuItem<MediaDevice>(
+                                value: device,
+                                child: ListTile(
+                                  leading: (device.deviceId == state.selectedVideoInputDeviceId)
+                                      ? const Icon(
+                                          Icons.check_box_outlined,
+                                          color: Colors.white,
+                                        )
+                                      : const Icon(
+                                          Icons.check_box_outline_blank,
+                                          color: Colors.white,
+                                        ),
+                                  title: Text(device.label),
+                                ),
+                                onTap: () => controlVm.selectVideoInput(device),
                               );
                             }),
                         ];
                       },
                     )
-                else
+                  else
+                    IconButton(
+                      onPressed: controlVm.enableVideo,
+                      icon: const Icon(Icons.videocam_off),
+                      tooltip: 'un-mute video',
+                    ),
                   IconButton(
-                    onPressed: controlVm.enableAudio,
-                    icon: const Icon(Icons.mic_off),
-                    tooltip: 'un-mute audio',
+                    icon: Icon(
+                      state.cameraPosition == CameraPosition.back ? Icons.video_camera_back : Icons.video_camera_front,
+                    ),
+                    onPressed: controlVm.toggleCamera,
+                    tooltip: 'toggle camera',
                   ),
-                if (!lkPlatformIsMobile())
-                  PopupMenuButton<MediaDevice>(
-                    icon: const Icon(Icons.volume_up),
-                    itemBuilder: (BuildContext context) {
-                      return [
-                        const PopupMenuItem<MediaDevice>(
-                          value: null,
-                          child: ListTile(
-                            leading: Icon(
-                              Icons.speaker,
-                              color: Colors.white,
-                            ),
-                            title: Text('Select Audio Output'),
-                          ),
-                        ),
-                        if (state.audioOutputs.isNotEmpty)
-                          ...state.audioOutputs.map((device) {
-                            return PopupMenuItem<MediaDevice>(
-                              value: device,
-                              child: ListTile(
-                                leading: (device.deviceId == state.selectedAudioOutputDeviceId)
-                                    ? const Icon(
-                                        Icons.check_box_outlined,
-                                        color: Colors.white,
-                                      )
-                                    : const Icon(
-                                        Icons.check_box_outline_blank,
-                                        color: Colors.white,
-                                      ),
-                                title: Text(device.label),
-                              ),
-                              onTap: () => controlVm.selectAudioOutput(device),
-                            );
-                          }),
-                      ];
-                    },
-                  ),
-                if (!kIsWeb && lkPlatformIsMobile())
+                  if (state.isScreenShareEnabled)
+                    IconButton(
+                      icon: const Icon(Icons.monitor_outlined),
+                      onPressed: controlVm.disableScreenShare,
+                      tooltip: 'unshare screen (experimental)',
+                    )
+                  else
+                    IconButton(
+                      icon: const Icon(Icons.monitor),
+                      onPressed: controlVm.enableScreenShare,
+                      tooltip: 'share screen (experimental)',
+                    ),
                   IconButton(
-                    disabledColor: Colors.grey,
-                    onPressed: controlVm.setSpeakerphoneOn,
-                    icon: Icon(state.isSpeakerphoneOn ? Icons.speaker_phone : Icons.phone_android),
-                    tooltip: 'Switch SpeakerPhone',
+                    onPressed: handleDisconnectClick,
+                    icon: const Icon(Icons.close_sharp),
+                    tooltip: 'disconnect',
                   ),
-                if (state.isCameraEnabled)
-                  PopupMenuButton<MediaDevice>(
-                    icon: const Icon(Icons.videocam_sharp),
-                    itemBuilder: (BuildContext context) {
-                      return [
-                        PopupMenuItem<MediaDevice>(
-                          value: null,
-                          onTap: controlVm.disableVideo,
-                          child: const ListTile(
-                            leading: Icon(
-                              Icons.videocam_off,
-                              color: Colors.white,
-                            ),
-                            title: Text('Disable Camera'),
-                          ),
-                        ),
-                        if (state.videoInputs.isNotEmpty)
-                          ...state.videoInputs.map((device) {
-                            return PopupMenuItem<MediaDevice>(
-                              value: device,
-                              child: ListTile(
-                                leading: (device.deviceId == state.selectedVideoInputDeviceId)
-                                    ? const Icon(
-                                        Icons.check_box_outlined,
-                                        color: Colors.white,
-                                      )
-                                    : const Icon(
-                                        Icons.check_box_outline_blank,
-                                        color: Colors.white,
-                                      ),
-                                title: Text(device.label),
-                              ),
-                              onTap: () => controlVm.selectVideoInput(device),
-                            );
-                          }),
-                      ];
-                    },
-                  )
-                else
-                  IconButton(
-                    onPressed: controlVm.enableVideo,
-                    icon: const Icon(Icons.videocam_off),
-                    tooltip: 'un-mute video',
-                  ),
-                IconButton(
-                  icon: Icon(
-                    state.cameraPosition == CameraPosition.back ? Icons.video_camera_back : Icons.video_camera_front,
-                  ),
-                  onPressed: controlVm.toggleCamera,
-                  tooltip: 'toggle camera',
-                ),
-                if (state.isScreenShareEnabled)
-                  IconButton(
-                    icon: const Icon(Icons.monitor_outlined),
-                    onPressed: controlVm.disableScreenShare,
-                    tooltip: 'unshare screen (experimental)',
-                  )
-                else
-                  IconButton(
-                    icon: const Icon(Icons.monitor),
-                    onPressed: controlVm.enableScreenShare,
-                    tooltip: 'share screen (experimental)',
-                  ),
-                IconButton(
-                  onPressed: handleDisconnectClick,
-                  icon: const Icon(Icons.close_sharp),
-                  tooltip: 'disconnect',
-                ),
-              ],
+                ],
+              ),
             )
           : const Center(
               child: CircularProgressIndicator(),
